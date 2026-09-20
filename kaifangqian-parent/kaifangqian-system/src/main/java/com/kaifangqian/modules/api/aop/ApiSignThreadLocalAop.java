@@ -25,6 +25,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.kaifangqian.modules.api.entity.ApiNormalReq;
 import com.kaifangqian.modules.api.exception.RequestParamsException;
 import com.kaifangqian.modules.api.service.IApiNormalReqService;
+import com.kaifangqian.modules.api.util.ApiSignature;
 import com.kaifangqian.modules.api.service.IApiRelationLinkService;
 import com.kaifangqian.modules.system.entity.ApiDeveloperManage;
 import com.kaifangqian.modules.system.entity.SysTenantUser;
@@ -136,8 +137,8 @@ public class ApiSignThreadLocalAop {
                     //开发者被停用
                     throw new RequestParamsException(token, operatorAccount, uniqueCode, data, ApiCode.DEVELOPER_STOP);
                 }
-                //验签
-                //signVerified = ApiSignature.check(data, sign, developerManage.getPublicKey(), ApiConstants.CHARSET_UTF8, ApiConstants.SIGN_TYPE_RSA2);
+                //验签：POST/PUT 对原始请求体做 RSA2(SHA256withRSA) 验签
+                signVerified = verifySign(data, sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
             } catch (RequestParamsException e) {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, e.getApiCode(), e.getMessage());
             } catch (IOException e) {
@@ -176,16 +177,16 @@ public class ApiSignThreadLocalAop {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, ApiCode.DEVELOPER_STOP);
             }
             try {
-                //验签
-//                signVerified = ApiSignature.check(params, sign, developerManage.getPublicKey(), ApiConstants.CHARSET_UTF8, ApiConstants.SIGN_TYPE_RSA2);
+                //验签：GET/DELETE 对排序拼接后的查询参数做 RSA2(SHA256withRSA) 验签
+                signVerified = verifySign(ApiSignature.getSignCheckContent(params), sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
             } catch (RequestParamsException e) {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, e.getApiCode(), e.getMessage());
             }
         }
-//        //验证失败
-//        if (!signVerified) {
-//            throw new RequestParamsException(token, operatorAccount, uniqueCode, content, ApiCode.DATA_CHECK_ERROR);
-//        }
+        //验签失败直接拒绝：未配置公钥、缺少签名或签名不匹配都不会放行
+        if (!signVerified) {
+            throw new RequestParamsException(token, operatorAccount, uniqueCode, content, ApiCode.DATA_CHECK_ERROR);
+        }
 
         if (MyStringUtils.isNotBlank(operatorAccount)) {
             //初始化用户数据
@@ -242,6 +243,41 @@ public class ApiSignThreadLocalAop {
         requestBodyCache.remove();
     }
 
+
+    /**
+     * RSA2 验签。
+     *
+     * 公开公钥为空时直接判定失败，避免"未配置即放行"的越权风险。
+     *
+     * @param signContent 参与签名的内容（POST/PUT 为原始请求体，GET/DELETE 为排序拼接后的查询参数）
+     * @param sign        请求头 sign 携带的 Base64 签名值
+     * @param publicKey   开发者公钥（Base64 编码的 X.509）
+     */
+    private boolean verifySign(String signContent, String sign, String publicKey,
+                               String token, String operatorAccount, String uniqueCode, String logContent) {
+        if (MyStringUtils.isBlank(publicKey)) {
+            throw new RequestParamsException(token, operatorAccount, uniqueCode, logContent,
+                    ApiCode.DATA_CHECK_ERROR, "开发者未配置验签公钥");
+        }
+        if (MyStringUtils.isBlank(sign)) {
+            throw new RequestParamsException(token, operatorAccount, uniqueCode, logContent,
+                    ApiCode.DATA_CHECK_ERROR, "缺少签名(sign)");
+        }
+        try {
+            boolean ok = ApiSignature.check(signContent, sign, publicKey,
+                    ApiConstants.CHARSET_UTF8, ApiConstants.SIGN_TYPE_RSA2);
+            if (!ok) {
+                throw new RequestParamsException(token, operatorAccount, uniqueCode, logContent, ApiCode.DATA_CHECK_ERROR);
+            }
+            return true;
+        } catch (RequestParamsException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("OpenAPI 验签异常: {}", e.getMessage());
+            throw new RequestParamsException(token, operatorAccount, uniqueCode, logContent,
+                    ApiCode.DATA_CHECK_ERROR, e.getMessage());
+        }
+    }
 
     private String getRequestBody(HttpServletRequest request) throws IOException {
         try (BufferedReader reader = request.getReader()) {

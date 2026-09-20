@@ -11,3 +11,6 @@
 ### 本地 compose 部署：构建产物与本地凭据不入库 ###
 /deploy/compose/build/
 /deploy/compose/.env
+
+### OpenAPI 验签私钥（本地生成，禁止入库） ###
+/deploy/compose/.secrets/

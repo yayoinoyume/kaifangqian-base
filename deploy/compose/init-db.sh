@@ -7,6 +7,8 @@
 #   3. 修正 sys_app_info.app_address（签署跳转链接依赖，缺端口会导致打开报错页）
 #   4. 确保 OpenAPI 开发者凭据存在：token 随机生成并写入 .env（不纳入 git）
 #   5. 重置管理员密码（前端会先对密码做一次 MD5，故此处同样先 MD5 再走后端算法）
+#   6. 开启短信验证码随机化（send_message=true）
+#   7. 生成 OpenAPI RSA2 验签密钥对：私钥留在 .secrets/（不纳入 git），公钥写入 api_developer_manage
 #
 # 可重复执行，不会覆盖已有业务数据。
 set -euo pipefail
@@ -94,6 +96,39 @@ ON DUPLICATE KEY UPDATE developer_name = VALUES(developer_name), token = VALUES(
 SQL
 }
 
+enable_send_message() {
+  log "开启短信验证码随机化（send_message=true）"
+  local cnt
+  cnt="$(mysql_exec -N -B "${MYSQL_DATABASE}" -e "SELECT COUNT(*) FROM sys_config WHERE type='send_message'" || echo 0)"
+  cnt="${cnt//[^0-9]/}"
+  if [ "${cnt:-0}" -eq 0 ]; then
+    mysql_exec "${MYSQL_DATABASE}" -e "INSERT INTO sys_config (id,name,type,value,create_by,create_time,update_by,update_time) VALUES ('5cpp6af-1eff-ad09-4fb4-o93b22d61607','是否发送短信','send_message','true',NULL,NOW(),'admin',NOW())"
+  else
+    mysql_exec "${MYSQL_DATABASE}" -e "UPDATE sys_config SET value='true' WHERE type='send_message'"
+  fi
+  log "验证码改为每次随机生成（本地短信通道只记录不发送真实短信）"
+}
+
+ensure_api_keypair() {
+  local secrets_dir="${SCRIPT_DIR}/.secrets"
+  local private_key="${secrets_dir}/api-client-private.pem"
+  mkdir -p "${secrets_dir}"
+  chmod 700 "${secrets_dir}" 2>/dev/null || true
+  if [ ! -f "${private_key}" ]; then
+    log "生成 OpenAPI 客户端 RSA 私钥（仅本地保存，不纳入 git）"
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "${private_key}" 2>/dev/null \
+      || fail "RSA 私钥生成失败（需要 openssl）"
+    chmod 600 "${private_key}"
+  fi
+  local public_key_b64
+  public_key_b64="$(openssl rsa -in "${private_key}" -pubout -outform DER 2>/dev/null | base64 -w0)"
+  [ -n "${public_key_b64}" ] || fail "公钥生成失败"
+  mysql_exec "${MYSQL_DATABASE}" <<SQL
+UPDATE api_developer_manage SET public_key = '${public_key_b64}' WHERE id = '${API_DEV_ID}';
+SQL
+  log "开发者验签公钥已写入数据库（私钥路径：${private_key}）"
+}
+
 reset_admin_password() {
   log "重置管理员密码（${ADMIN_USER}）"
   local salt
@@ -138,6 +173,8 @@ main() {
   import_schema_if_empty
   fix_app_address
   ensure_api_developer
+  ensure_api_keypair
+  enable_send_message
   reset_admin_password
   log "数据库初始化完成"
 }

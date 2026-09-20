@@ -157,7 +157,8 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # 挂载整个目录而非单文件：Docker Desktop 下单文件 bind mount 不会随宿主机改动同步
+      - ./nginx:/etc/nginx/conf.d:ro
       - ./build/webroot:/data/opensign-web:ro
     ports:
       - "${WEB_HOST_PORT:-8806}:8806"
