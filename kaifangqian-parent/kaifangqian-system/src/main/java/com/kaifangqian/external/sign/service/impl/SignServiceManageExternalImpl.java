@@ -90,6 +90,9 @@ public class SignServiceManageExternalImpl implements SignServiceManageExternal 
     @Value("${service.manage.yundun-app-info-url}")
     private String yundunAppInfoServiceUrl;
 
+    @Value("${service.yundun-enabled:false}")
+    private boolean yundunEnabled;
+
     @Autowired
     private ITenantInfoExtendService tenantInfoExtendService;
 
@@ -552,15 +555,23 @@ public class SignServiceManageExternalImpl implements SignServiceManageExternal 
     public SignAppInfoResponse querySignAppInfo() throws Exception {
 
         SignAppInfoResponse signAppInfoResponse = new SignAppInfoResponse();
+        // [二改] 本地降级默认值：未开通云盾服务时，避免接口因私钥/网络问题整体失败
+        signAppInfoResponse.setAppName("开放签电子签章系统");
+        signAppInfoResponse.setAppLogo("");
+
+        if (!isYundunEnabled()) {
+            log.info("[本地模式] 未启用云盾，querySignAppInfo 使用本地默认值，不发起外呼");
+            return signAppInfoResponse;
+        }
 
         String uri = "/yundun/api/v1/sign/app/info";
-
-        // 构建请求头
-        Map<String,String> headers = SignHeadersGenerator.generateSignHeaders(appId, null, uri, privateKey);
 
         String returnJson = null ;
 
         try {
+            // 构建请求头（移入 try：privateKey 未配置时不应把异常抛给调用方）
+            Map<String,String> headers = SignHeadersGenerator.generateSignHeaders(appId, null, uri, privateKey);
+
             returnJson = HttpUtils.executeGetMap(yundunAppInfoServiceUrl, null, headers);
 
             CommonResult<SignAppInfoResponse> result = JSONObject.parseObject(returnJson, new TypeReference<CommonResult<SignAppInfoResponse>>() {});
@@ -568,9 +579,17 @@ public class SignServiceManageExternalImpl implements SignServiceManageExternal 
                 signAppInfoResponse = result.getResult();
             }
         } catch (Exception e) {
-            log.error("Error occurred while querying kaifangqian-sign-app info.", e);
+            log.warn("[二改] 云盾应用信息查询失败，已降级为本地默认值: {}", e.getMessage());
         }
 
         return signAppInfoResponse;
+    }
+
+    private boolean isYundunEnabled() {
+        return yundunEnabled
+                && MyStringUtils.isNotBlank(appId)
+                && MyStringUtils.isNotBlank(privateKey)
+                && !"unused".equalsIgnoreCase(appId)
+                && !"unused".equalsIgnoreCase(privateKey);
     }
 }

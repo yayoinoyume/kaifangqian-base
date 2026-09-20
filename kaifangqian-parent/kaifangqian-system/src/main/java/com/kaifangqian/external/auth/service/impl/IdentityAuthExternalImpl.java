@@ -157,6 +157,10 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public IdentityAuthResponse personalIdentityAuth(String callbackPage) throws Exception {
+        if (localAuthEnabled()) {
+            return markLocalPersonalAuth("本地个人实名认证已完成");
+        }
+
 
         // 返回接口信息
         CommonResult<IdentityAuthResponse> result = null;
@@ -276,6 +280,10 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public Result<?> queryIdentityAuthInfo(String orderNo) throws Exception {
+        if (localAuthEnabled()) {
+            return Result.OK("success");
+        }
+
         Result<?> updateResult = null;
 
         String uri = "/yundun/api/v1/auth/order/info?orderNo="+orderNo;
@@ -308,6 +316,11 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public Result<?> getIdentityAuthInfo(String unionId) throws Exception {
+        if (localAuthEnabled()) {
+            markLocalTenantAuthByTenantId(unionId);
+            return Result.OK("success");
+        }
+
         Result<?> updateResult = null;
 
         String queryIdentityAuthUrl = getYundunGetAuthInfoUrl+"?unionId="+unionId;
@@ -339,6 +352,10 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public IdentityAuthResponse personalIdentityAuthUpdate(String callbackPage) throws Exception {
+        if (localAuthEnabled()) {
+            return markLocalPersonalAuth("本地个人实名认证已完成");
+        }
+
 
         // 返回接口信息
         CommonResult<IdentityAuthResponse> result = null;
@@ -432,6 +449,10 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public IdentityAuthResponse companyIdentityAuth(String callbackPage) throws Exception {
+        if (localAuthEnabled()) {
+            return markLocalTenantAuth("本地企业实名认证已完成");
+        }
+
         LoginUser loginUser = MySecurityUtils.getCurrentUser();
 
         // 返回接口信息
@@ -541,6 +562,10 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Override
     public IdentityAuthResponse companyIdentityAuthUpdate(String callbackPage) throws Exception {
+        if (localAuthEnabled()) {
+            return markLocalTenantAuth("本地企业实名认证已完成");
+        }
+
 
         LoginUser loginUser = MySecurityUtils.getCurrentUser();
 
@@ -644,6 +669,13 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Result<?> updateIdentityAuth(AuthCallbackRequest request) throws Exception {
+        if (localAuthEnabled()) {
+            if (request != null) {
+                markLocalTenantAuthByTenantId(request.getUnionId());
+            }
+            return Result.OK("success");
+        }
+
         TenantInfoExtend tenantInfoExtend = tenantInfoExtendService.getTenantInfoByTenantId(request.getUnionId());
         if(tenantInfoExtend != null && tenantInfoExtend.getAuthStatus() == TenantAuthStatus.STATUS0.getStatus() && request != null && request.getOrderStatus() == YunDunAuthStatus.SUCCESS.getType() && request.getBizType() == YunDunAuthStatus.FRISTVERIFY.getType()){
             if(request.getOrderStatus() == YunDunAuthStatus.SUCCESS.getType()){
@@ -842,4 +874,57 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 //        signFileService.updateAnnexStorage(SignFileEnum.SEAL_FILE_PERSON, personSeal.getId(), annexId);
     }
 
+
+    private boolean localAuthEnabled() {
+        return true;
+    }
+
+    private IdentityAuthResponse markLocalPersonalAuth(String message) {
+        LoginUser loginUser = MySecurityUtils.getCurrentUser();
+        TenantInfoExtend tenantInfoExtend = tenantInfoExtendService.getTenantInfoByTenantId(loginUser.getTenantId());
+        if (tenantInfoExtend != null && tenantInfoExtend.getTenantType() != null
+                && tenantInfoExtend.getTenantType() != TenantType.PERSONAL.getType()) {
+            try {
+                String personalTenantId = sysTenantUserService.getPersonalTenantUser(loginUser.getId()).getTenantId();
+                TenantInfoExtend personalTenant = tenantInfoExtendService.getTenantInfoByTenantId(personalTenantId);
+                if (personalTenant != null) {
+                    tenantInfoExtend = personalTenant;
+                }
+            } catch (Exception e) {
+                log.warn("未找到个人租户，回退当前租户: {}", loginUser.getId(), e);
+            }
+        }
+        markLocalTenantAuth(tenantInfoExtend);
+        IdentityAuthResponse response = new IdentityAuthResponse();
+        response.setAuthStatus(1);
+        response.setResultMessage(message);
+        return response;
+    }
+
+    private IdentityAuthResponse markLocalTenantAuth(String message) {
+        LoginUser loginUser = MySecurityUtils.getCurrentUser();
+        markLocalTenantAuth(tenantInfoExtendService.getTenantInfoByTenantId(loginUser.getTenantId()));
+        IdentityAuthResponse response = new IdentityAuthResponse();
+        response.setAuthStatus(1);
+        response.setResultMessage(message);
+        return response;
+    }
+
+    private void markLocalTenantAuthByTenantId(String tenantId) {
+        if (tenantId != null && !tenantId.isEmpty()) {
+            markLocalTenantAuth(tenantInfoExtendService.getTenantInfoByTenantId(tenantId));
+        }
+    }
+
+    private void markLocalTenantAuth(TenantInfoExtend tenantInfoExtend) {
+        if (tenantInfoExtend == null) {
+            return;
+        }
+        Integer authStatus = tenantInfoExtend.getAuthStatus();
+        if (authStatus == null || authStatus != TenantAuthStatus.STATUS2.getStatus()) {
+            tenantInfoExtend.setAuthStatus(TenantAuthStatus.STATUS2.getStatus());
+            tenantInfoExtendService.updateById(tenantInfoExtend);
+            log.info("[本地实名认证] tenantId={} 已标记为已认证", tenantInfoExtend.getTenantId());
+        }
+    }
 }
