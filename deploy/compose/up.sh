@@ -5,13 +5,14 @@
 #   ./up.sh            # 产物存在则直接拉起；缺失则自动全量构建
 #   ./up.sh --build    # 先强制全量构建，再拉起
 #   ./up.sh --no-build # 不做构建检查，直接拉起（产物缺失会报错）
+#   ./up.sh --reset-admin-password   # 额外把 admin 密码强制重置为 .env 中的值
 #
 # 执行内容：
 #   1. 准备 .env（不存在时从 .env.example 复制）
 #   2. 确保 kfq-net 网络与 4 个数据卷存在（卷 external，compose down 不会删）
 #   3. 校验/构建 ./build/ 产物
 #   4. docker compose up -d，等待 5 个容器健康
-#   5. init-db.sh 做幂等数据库初始化
+#   5. init-db.sh 做幂等数据库初始化（已存在的 admin 密码不会被覆盖）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -85,11 +86,13 @@ wait_healthy() {
 main() {
   command -v docker >/dev/null 2>&1 || fail "未找到 docker 命令"
   local build_mode="auto"
+  local reset_admin_flag=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --build)    build_mode="always"; shift ;;
-      --no-build) build_mode="never"; shift ;;
-      *)          fail "未知参数：$1" ;;
+      --build)                  build_mode="always"; shift ;;
+      --no-build)               build_mode="never"; shift ;;
+      --reset-admin-password)   reset_admin_flag="--reset-admin-password"; shift ;;
+      *)                        fail "未知参数：$1" ;;
     esac
   done
   prepare_env
@@ -98,7 +101,11 @@ main() {
   log "启动容器"
   compose up -d
   wait_healthy
-  "${SCRIPT_DIR}/init-db.sh"
+  if [ -n "${reset_admin_flag}" ]; then
+    "${SCRIPT_DIR}/init-db.sh" "${reset_admin_flag}"
+  else
+    "${SCRIPT_DIR}/init-db.sh"
+  fi
   log "完成，入口：${KAIFANGQIAN_APP_ADDRESS:-http://localhost:8806/}"
 }
 
