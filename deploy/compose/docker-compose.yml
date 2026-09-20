@@ -1,0 +1,188 @@
+# 开放签（kaifangqian）本地私有化部署 —— 五容器编排
+# 说明：
+#   1) 卷与网络统一使用 external，避免 docker compose down 误删数据卷；
+#      首次部署请先执行 up.sh（会自动创建缺失的卷与网络）。
+#   2) 构建产物位于 ./build/，由 build.sh 生成，不纳入 git。
+#   3) 凭据来自同目录 .env（不纳入 git），模板见 .env.example。
+name: kaifangqian
+
+services:
+  kfq-mysql:
+    image: mysql:5.7.44
+    container_name: kfq-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --lower_case_table_names=1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-opensign}
+      TZ: Asia/Shanghai
+    volumes:
+      - kfq-mysql-data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:${MYSQL_HOST_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    networks:
+      - kfq-net
+
+  kfq-redis:
+    image: redis:6.2-alpine
+    container_name: kfq-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-KfqPoc2026Redis}
+      TZ: Asia/Shanghai
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - kfq-redis-data:/data
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - kfq-net
+
+  kfq-powerjob:
+    image: eclipse-temurin:8-jre
+    container_name: kfq-powerjob
+    restart: unless-stopped
+    depends_on:
+      kfq-mysql:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      LANG: en_US.UTF-8
+    volumes:
+      - ./build/powerjob-server.jar:/app/powerjob-server.jar:ro
+    ports:
+      - "${POWERJOB_HOST_PORT:-7990}:7990"
+      - "10010:10010"
+      - "10086:10086"
+    command:
+      - java
+      - -jar
+      - /app/powerjob-server.jar
+      - --spring.profiles.active=product
+      - --server.port=7990
+      - "--spring.datasource.core.jdbc-url=jdbc:mysql://kfq-mysql:3306/${MYSQL_DATABASE:-opensign}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+      - --spring.datasource.core.username=root
+      - "--spring.datasource.core.password=${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}"
+      - --oms.mongodb.enable=false
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/7990'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - kfq-net
+
+  kfq-api:
+    image: eclipse-temurin:8-jre
+    container_name: kfq-api
+    restart: unless-stopped
+    depends_on:
+      kfq-mysql:
+        condition: service_healthy
+      kfq-redis:
+        condition: service_healthy
+      kfq-powerjob:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+      LANG: en_US.UTF-8
+      MYSQL_HOST: kfq-mysql
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-opensign}
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}
+      REDIS_HOST: kfq-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-KfqPoc2026Redis}
+      REDIS_DATABASE: "0"
+      JOB_SERVER: kfq-powerjob:7990
+      STORAGE_ACTIVE: local
+      OSS_ACCESSKEYID: unused
+      OSS_ACCESSKEYSECRET: unused
+      OSS_BUCKETNAME: unused
+      MINIO_ADDRESS: unused
+      MINIO_ACCESS: unused
+      MINIO_SECRET: unused
+      MINIO_BUCKET_NAME: unused
+      YD_APP_ID: unused
+      YD_APP_VK: unused
+    volumes:
+      # 后端主体数据（本地 CA、证书等）
+      - kfq-storage:/app/storage
+      # 签约文件真实落盘目录：storagePath=storage 的相对路径会解析到容器根 /storage
+      - kfq-file-storage:/storage
+      - ./build/kaifangqian.jar:/app/kaifangqian.jar:ro
+      - ../../kaifangqian-parent/file:/home/kaifangqian/file:ro
+    command:
+      - java
+      - -Dspring.profiles.active=prod
+      - -Dproject.name=kaifangqian
+      - -jar
+      - /app/kaifangqian.jar
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8899'"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      # 实测后端约 250 秒才可用，start_period 给足余量
+      start_period: 120s
+    networks:
+      - kfq-net
+
+  kfq-web:
+    image: nginx:1.26-alpine
+    container_name: kfq-web
+    restart: unless-stopped
+    depends_on:
+      kfq-api:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./build/webroot:/data/opensign-web:ro
+    ports:
+      - "${WEB_HOST_PORT:-8806}:8806"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8806/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks:
+      - kfq-net
+
+networks:
+  kfq-net:
+    name: kfq-net
+    external: true
+
+volumes:
+  kfq-mysql-data:
+    name: kfq-mysql-data
+    external: true
+  kfq-redis-data:
+    name: kfq-redis-data
+    external: true
+  kfq-storage:
+    name: kfq-storage
+    external: true
+  kfq-file-storage:
+    name: kfq-file-storage
+    external: true

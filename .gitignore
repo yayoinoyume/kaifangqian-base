@@ -7,3 +7,7 @@
 
 /logs/
 /kaifangqian-parent/kaifangqian-system/src/main/resources/application-dev.yml
+
+### 本地 compose 部署：构建产物与本地凭据不入库 ###
+/deploy/compose/build/
+/deploy/compose/.env
