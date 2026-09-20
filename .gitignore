@@ -14,3 +14,7 @@
 
 ### OpenAPI 验签私钥（本地生成，禁止入库） ###
 /deploy/compose/.secrets/
+
+### Python 运行缓存 ###
+__pycache__/
+*.pyc
