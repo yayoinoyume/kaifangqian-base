@@ -58,6 +58,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * @author : yxb
@@ -96,6 +97,9 @@ public class SignServiceExternalImpl implements SignServiceExternal {
 
     @Value("${service.manage.yundun-silent-sign-url}")
     private String yundunSilentSignUrl;
+
+    @Value("${service.yundun-enabled:false}")
+    private boolean yundunEnabled;
 
 
     @Override
@@ -299,6 +303,29 @@ public class SignServiceExternalImpl implements SignServiceExternal {
      */
     private void sendSignOrder(SignOrderRequest signOrderRequest, String verifyOrderNo,LoginUser loginUser,SignRuTask signRuTask,SignOrderServiceInfoResponse signOrderServiceInfoResponse) throws Exception {
 
+        // [二改] 本地意愿校验：未启用云盾时不调用云盾签署订单接口，
+        // 直接标记意愿校验通过，并把确认页指回本地前端确认页（wishCheck）。
+        if (!isYundunEnabled()) {
+            String localToken = MD5Util.MD5Encode(SignCommonConstant.VERIFY_SIGN_DOCUMENT + signRuTask.getId(), "UTF-8");
+            redisUtil.set(localToken, signOrderRequest.getCallbackPage());
+            redisUtil.expire(localToken, SignCommonConstant.TWO_DAY);
+
+            String localOrderNo = "LOCAL-" + UUID.randomUUID().toString().replace("-", "");
+            signUserConfirmService.setFlag(verifyOrderNo, true);
+
+            String localConfirmUrl = buildLocalSignConfirmUrl(signOrderRequest.getCallbackPage(), verifyOrderNo, signRuTask);
+
+            signRuTask.setOrderNo(localOrderNo);
+            signRuTask.setYdAuthSignUrl(localConfirmUrl);
+            ruTaskService.updateById(signRuTask);
+
+            signOrderServiceInfoResponse.setStatus(0);
+            signOrderServiceInfoResponse.setOrderNo(localOrderNo);
+            signOrderServiceInfoResponse.setSignConfirmUrl(localConfirmUrl);
+            log.info("[本地模式] 未启用云盾，跳过意愿校验订单外呼，本地确认页: {}", localConfirmUrl);
+            return;
+        }
+
         CommonResult<SignOrderServiceInfoResponse> result = null;
 
         String token = MD5Util.MD5Encode(SignCommonConstant.VERIFY_SIGN_DOCUMENT+signRuTask.getId(),"UTF-8");
@@ -359,6 +386,29 @@ public class SignServiceExternalImpl implements SignServiceExternal {
             }
 
         }
+    }
+
+    /**
+     * @Description 本地模式下构造签署确认页地址：复用前端回调地址并修正 orderNo 为本地的意愿校验记录 id
+     **/
+    private String buildLocalSignConfirmUrl(String callbackPage, String verifyOrderNo, SignRuTask signRuTask) {
+        if (MyStringUtils.isNotBlank(callbackPage) && callbackPage.contains("orderNo=")) {
+            return callbackPage.replaceAll("orderNo=[^&]*", "orderNo=" + verifyOrderNo);
+        }
+        String base = "";
+        SysAppInfo sysAppInfo = sysAppInfoService.getById("490489ab-d8b4-414c-ad77-d856962c286f");
+        if (sysAppInfo != null && MyStringUtils.isNotBlank(sysAppInfo.getAppAddress())) {
+            base = sysAppInfo.getAppAddress();
+        }
+        return base + "/#/wishCheck?orderNo=" + verifyOrderNo + "&signRuId=" + signRuTask.getSignRuId();
+    }
+
+    private boolean isYundunEnabled() {
+        return yundunEnabled
+                && MyStringUtils.isNotBlank(appId)
+                && MyStringUtils.isNotBlank(privateKey)
+                && !"unused".equalsIgnoreCase(appId)
+                && !"unused".equalsIgnoreCase(privateKey);
     }
 
 }
