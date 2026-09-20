@@ -122,6 +122,8 @@ services:
       MINIO_BUCKET_NAME: unused
       YD_APP_ID: unused
       YD_APP_VK: unused
+      # 官方 license 授权码：留空则 LicenseBean 回退到本地默认授权（私有化不依赖官方签发）
+      TOKEN: ${SERVICE_TOKEN:-}
     volumes:
       # 后端主体数据（本地 CA、证书等）
       - kfq-storage:/app/storage
