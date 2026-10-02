@@ -16,7 +16,7 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       - --lower_case_table_names=1
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置（见 .env.example）}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-opensign}
       TZ: Asia/Shanghai
     volumes:
@@ -37,7 +37,7 @@ services:
     container_name: kfq-redis
     restart: unless-stopped
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-KfqPoc2026Redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置（见 .env.example）}
       TZ: Asia/Shanghai
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
@@ -53,6 +53,30 @@ services:
     networks:
       - kfq-net
 
+  # 一次性初始化容器：为 PowerJob 创建最小权限数据库账号（不再用 MySQL root）
+  kfq-db-init:
+    image: mysql:5.7.44
+    container_name: kfq-db-init
+    restart: "no"
+    depends_on:
+      kfq-mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置（见 .env.example）}
+      KFQ_DB: ${MYSQL_DATABASE:-opensign}
+      KFQ_POWERJOB_USER: ${POWERJOB_DB_USER:-kfq_powerjob}
+      KFQ_POWERJOB_PASSWORD: ${POWERJOB_DB_PASSWORD:?POWERJOB_DB_PASSWORD 未配置（见 .env.example）}
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        mysql -h kfq-mysql -uroot -p"$$MYSQL_ROOT_PASSWORD" -e
+        "CREATE USER IF NOT EXISTS '$$KFQ_POWERJOB_USER'@'%' IDENTIFIED BY '$$KFQ_POWERJOB_PASSWORD';
+        ALTER USER '$$KFQ_POWERJOB_USER'@'%' IDENTIFIED BY '$$KFQ_POWERJOB_PASSWORD';
+        GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP, CREATE TEMPORARY TABLES, LOCK TABLES ON \`$$KFQ_DB\`.* TO '$$KFQ_POWERJOB_USER'@'%';
+        FLUSH PRIVILEGES;"
+    networks:
+      - kfq-net
+
   kfq-powerjob:
     image: eclipse-temurin:8-jre
     container_name: kfq-powerjob
@@ -60,15 +84,18 @@ services:
     depends_on:
       kfq-mysql:
         condition: service_healthy
+      kfq-db-init:
+        condition: service_completed_successfully
     environment:
       TZ: Asia/Shanghai
       LANG: en_US.UTF-8
     volumes:
       - ./build/powerjob-server.jar:/app/powerjob-server.jar:ro
     ports:
-      - "${POWERJOB_HOST_PORT:-7990}:7990"
-      - "10010:10010"
-      - "10086:10086"
+      # 仅绑定回环地址，不对宿主机所有网卡暴露
+      - "127.0.0.1:${POWERJOB_HOST_PORT:-7990}:7990"
+      - "127.0.0.1:10010:10010"
+      - "127.0.0.1:10086:10086"
     command:
       - java
       - -jar
@@ -76,8 +103,8 @@ services:
       - --spring.profiles.active=product
       - --server.port=7990
       - "--spring.datasource.core.jdbc-url=jdbc:mysql://kfq-mysql:3306/${MYSQL_DATABASE:-opensign}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
-      - --spring.datasource.core.username=root
-      - "--spring.datasource.core.password=${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}"
+      - "--spring.datasource.core.username=${POWERJOB_DB_USER:-kfq_powerjob}"
+      - "--spring.datasource.core.password=${POWERJOB_DB_PASSWORD:?POWERJOB_DB_PASSWORD 未配置（见 .env.example）}"
       - --oms.mongodb.enable=false
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/7990'"]
@@ -106,12 +133,14 @@ services:
       MYSQL_PORT: "3306"
       MYSQL_DATABASE: ${MYSQL_DATABASE:-opensign}
       MYSQL_USERNAME: root
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-KfqPoc2026Root}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未配置（见 .env.example）}
       REDIS_HOST: kfq-redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-KfqPoc2026Redis}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置（见 .env.example）}
       REDIS_DATABASE: "0"
       JOB_SERVER: kfq-powerjob:7990
+      # 本地签名证书（PFX）口令：必填，无弱默认值
+      KFQ_LOCAL_CA_PASSWORD: ${KFQ_LOCAL_CA_PASSWORD:?KFQ_LOCAL_CA_PASSWORD 未配置（见 .env.example）}
       STORAGE_ACTIVE: local
       OSS_ACCESSKEYID: unused
       OSS_ACCESSKEYSECRET: unused

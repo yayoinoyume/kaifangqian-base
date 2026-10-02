@@ -27,11 +27,62 @@ log()  { printf '\n[up] %s\n' "$*"; }
 
 compose() { docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "$@"; }
 
+gen_secret() { openssl rand -hex 16; }
+
+env_value() {
+  grep "^$1=" "${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2-
+}
+
+set_env_value() {
+  local key="$1" value="$2"
+  if grep -q "^${key}=" "${ENV_FILE}"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${ENV_FILE}"
+  else
+    printf '%s=%s\n' "${key}" "${value}" >> "${ENV_FILE}"
+  fi
+}
+
+ensure_secret() {
+  local key="$1" current
+  current="$(env_value "${key}")"
+  if [ -z "${current}" ]; then
+    set_env_value "${key}" "$(gen_secret)"
+    log "已为 ${key} 生成随机口令并写入 .env"
+  fi
+}
+
 prepare_env() {
   if [ ! -f "${ENV_FILE}" ]; then
     cp "${ENV_EXAMPLE}" "${ENV_FILE}"
     log "已根据 .env.example 生成 .env（含本地凭据，不纳入 git）"
   fi
+  # 口令必须显式提供或由脚本随机生成，不允许弱默认值
+  local key
+  for key in MYSQL_ROOT_PASSWORD REDIS_PASSWORD POWERJOB_DB_PASSWORD KAIFANGQIAN_ADMIN_PASSWORD KFQ_LOCAL_CA_PASSWORD; do
+    ensure_secret "${key}"
+  done
+  chmod 600 "${ENV_FILE}"
+}
+
+validate_env() {
+  local perms
+  perms="$(stat -c '%a' "${ENV_FILE}" 2>/dev/null || echo '')"
+  if [ -n "${perms}" ] && [ "${perms}" != "600" ] && [ "${perms}" != "400" ]; then
+    fail "请先 chmod 600 ${ENV_FILE}（当前权限 ${perms}）"
+  fi
+  # 固定短信验证码属不安全调试模式，必须显式声明才允许启动
+  local random_mode insecure
+  random_mode="$(env_value KAIFANGQIAN_SEND_RANDOM_SMS_CODE | tr '[:upper:]' '[:lower:]')"
+  insecure="$(env_value KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG | tr '[:upper:]' '[:lower:]')"
+  case "${random_mode}" in
+    1|true|yes|on) : ;;
+    *)
+      case "${insecure}" in
+        1|true|yes|on) log "警告：短信验证码使用固定调试码（KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG=true），仅限构建调试" ;;
+        *) fail "KAIFANGQIAN_SEND_RANDOM_SMS_CODE=${random_mode:-<空>} 属不安全调试模式；如确需固定验证码，请显式设置 KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG=true" ;;
+      esac
+      ;;
+  esac
 }
 
 ensure_network_and_volumes() {
@@ -85,6 +136,7 @@ wait_healthy() {
 
 main() {
   command -v docker >/dev/null 2>&1 || fail "未找到 docker 命令"
+  command -v openssl >/dev/null 2>&1 || fail "未找到 openssl 命令（用于生成随机口令）"
   local build_mode="auto"
   local reset_admin_flag=""
   while [ $# -gt 0 ]; do
@@ -96,6 +148,7 @@ main() {
     esac
   done
   prepare_env
+  validate_env
   ensure_network_and_volumes
   ensure_artifacts "${build_mode}"
   log "启动容器"

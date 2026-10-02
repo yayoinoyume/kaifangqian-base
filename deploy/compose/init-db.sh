@@ -3,7 +3,8 @@
 #
 # 依次完成：
 #   1. 等待 MySQL 就绪
-#   2. 空库时导入 kaifangqian-parent/sql/opensign.sql（152 张表）
+#   2. 空库（0 张表）时导入 kaifangqian-parent/sql/opensign.sql（152 张表）；非空库拒绝导入，
+#      确需重建必须显式传 --force-init（导入前强制 mysqldump 备份）
 #   3. 修正 sys_app_info.app_address（签署跳转链接依赖，缺端口会导致打开报错页）
 #   4. 确保 OpenAPI 开发者凭据存在：token 随机生成并写入 .env（不纳入 git）
 #   5. 管理员密码：仅在首次导入（空库）时设置；已存在则不动，可用 --reset-admin-password 强制重置
@@ -13,6 +14,7 @@
 #   8. 初始化 OpenAPI 经办人关联与贫困生业务线（租户归属 + 使用者授权），保证开箱可发起签署
 #
 # 可重复执行，不会覆盖已有业务数据。
+# 参数：--reset-admin-password 强制重置管理员密码；--force-init 允许在非空库上导入（危险）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,25 +30,6 @@ log()  { printf '\n[init-db] %s\n' "$*"; }
 # shellcheck disable=SC1090
 set -a; . "${ENV_FILE}"; set +a
 
-: "${MYSQL_ROOT_PASSWORD:?缺少 MYSQL_ROOT_PASSWORD}"
-MYSQL_DATABASE="${MYSQL_DATABASE:-opensign}"
-APP_ADDRESS="${KAIFANGQIAN_APP_ADDRESS:-http://localhost:8806}"
-ADMIN_USER="${KAIFANGQIAN_ADMIN_USER:-admin}"
-ADMIN_PASSWORD="${KAIFANGQIAN_ADMIN_PASSWORD:-Kfq@2026Poc}"
-API_DEV_ID="${KAIFANGQIAN_API_DEVELOPER_ID:-kfq-local-poc-dev}"
-API_DEV_NAME="${KAIFANGQIAN_API_DEVELOPER_NAME:-Kaifangqian Local POC}"
-SEND_RANDOM_SMS_CODE="${KAIFANGQIAN_SEND_RANDOM_SMS_CODE:-false}"
-POVERTY_RE_ID="${KAIFANGQIAN_POVERTY_RE_ID:-kfq-poverty-re-0001}"
-
-# 运行期状态：本次是否真的导入过初始化 SQL（=首次初始化）
-DB_FRESH_IMPORT=0
-# 是否显式要求重置管理员密码
-RESET_ADMIN_PASSWORD=0
-
-mysql_exec() {
-  docker exec -i kfq-mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@" 2>/dev/null
-}
-
 set_env_var() {
   local key="$1" value="$2"
   if grep -q "^${key}=" "${ENV_FILE}"; then
@@ -54,6 +37,48 @@ set_env_var() {
   else
     printf '%s=%s\n' "${key}" "${value}" >> "${ENV_FILE}"
   fi
+}
+
+# 口令必须显式配置或由脚本随机生成，禁止弱默认值；生成的随机口令回写 .env（不纳入 git）
+ensure_secret() {
+  local key="$1"
+  local current="${!key:-}"
+  if [ -z "${current}" ]; then
+    current="$(openssl rand -hex 16)"
+    set_env_var "${key}" "${current}"
+    printf -v "${key}" '%s' "${current}"
+    log "已生成 ${key} 并写入 ${ENV_FILE}（不纳入 git）"
+  fi
+}
+
+ensure_secret MYSQL_ROOT_PASSWORD
+ensure_secret REDIS_PASSWORD
+ensure_secret POWERJOB_DB_PASSWORD
+ensure_secret KAIFANGQIAN_ADMIN_PASSWORD
+ensure_secret KFQ_LOCAL_CA_PASSWORD
+
+MYSQL_DATABASE="${MYSQL_DATABASE:-opensign}"
+APP_ADDRESS="${KAIFANGQIAN_APP_ADDRESS:-http://localhost:8806}"
+ADMIN_USER="${KAIFANGQIAN_ADMIN_USER:-admin}"
+ADMIN_PASSWORD="${KAIFANGQIAN_ADMIN_PASSWORD:?缺少 KAIFANGQIAN_ADMIN_PASSWORD}"
+API_DEV_ID="${KAIFANGQIAN_API_DEVELOPER_ID:-kfq-local-poc-dev}"
+API_DEV_NAME="${KAIFANGQIAN_API_DEVELOPER_NAME:-Kaifangqian Local POC}"
+SEND_RANDOM_SMS_CODE="${KAIFANGQIAN_SEND_RANDOM_SMS_CODE:-true}"
+ALLOW_INSECURE_SMS_DEBUG="${KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG:-false}"
+POVERTY_RE_ID="${KAIFANGQIAN_POVERTY_RE_ID:-kfq-poverty-re-0001}"
+POWERJOB_DB_USER="${POWERJOB_DB_USER:-kfq_powerjob}"
+POWERJOB_DB_PASSWORD="${POWERJOB_DB_PASSWORD:?缺少 POWERJOB_DB_PASSWORD}"
+LOCAL_CA_PASSWORD="${KFQ_LOCAL_CA_PASSWORD:?缺少 KFQ_LOCAL_CA_PASSWORD}"
+
+# 运行期状态：本次是否真的导入过初始化 SQL（=首次初始化）
+DB_FRESH_IMPORT=0
+# 是否显式要求重置管理员密码
+RESET_ADMIN_PASSWORD=0
+# 是否允许在非空库上强制导入（危险操作，需 --force-init 显式开启）
+FORCE_INIT=0
+
+mysql_exec() {
+  docker exec -i kfq-mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --default-character-set=utf8mb4 "$@" 2>/dev/null
 }
 
 wait_mysql() {
@@ -67,25 +92,73 @@ wait_mysql() {
   fail "MySQL 在 180 秒内未就绪"
 }
 
+backup_database() {
+  local backup_dir="${SCRIPT_DIR}/backups"
+  mkdir -p "${backup_dir}"
+  chmod 700 "${backup_dir}" 2>/dev/null || true
+  local backup_file="${backup_dir}/pre-init-${MYSQL_DATABASE}-$(date +%Y%m%d-%H%M%S).sql"
+  log "导入前备份数据库到 ${backup_file}"
+  if ! docker exec kfq-mysql mysqldump -uroot -p"${MYSQL_ROOT_PASSWORD}" --single-transaction --routines --events --databases "${MYSQL_DATABASE}" > "${backup_file}"; then
+    rm -f "${backup_file}"
+    fail "数据库备份失败，已中止导入"
+  fi
+  if [ ! -s "${backup_file}" ]; then
+    rm -f "${backup_file}"
+    fail "数据库备份为空，已中止导入"
+  fi
+  chmod 600 "${backup_file}" 2>/dev/null || true
+  log "备份完成（$(wc -c < "${backup_file}") 字节）"
+}
+
+assert_schema_loaded() {
+  local tables
+  tables="$(mysql_exec -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}'" || echo 0)"
+  tables="${tables//[^0-9]/}"
+  if [ "${tables:-0}" -lt 152 ]; then
+    fail "导入后表数量异常（${tables:-0} < 152），请检查导入日志或用备份回滚"
+  fi
+  local t cnt
+  for t in sys_user sign_re api_developer_manage sys_app_info sys_config; do
+    cnt="$(mysql_exec -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}' AND table_name='${t}'" || echo 0)"
+    cnt="${cnt//[^0-9]/}"
+    if [ "${cnt:-0}" -lt 1 ]; then
+      fail "导入后缺少关键表 ${t}"
+    fi
+  done
+}
+
 import_schema_if_empty() {
   local tables
   tables="$(mysql_exec -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}'" || echo 0)"
   tables="${tables//[^0-9]/}"
-  if [ "${tables:-0}" -ge 100 ]; then
-    log "数据库已初始化（${tables} 张表），跳过导入"
-    return 0
+  if [ "${tables:-0}" -gt 0 ]; then
+    if [ "${FORCE_INIT}" != "1" ]; then
+      fail "目标库 ${MYSQL_DATABASE} 非空（${tables} 张表），已拒绝自动导入以免 DROP TABLE 造成数据丢失。确需重建请先备份并显式传入 --force-init"
+    fi
+    log "警告：--force-init 已开启，将对非空库 ${MYSQL_DATABASE}（${tables} 张表）执行导入"
+    backup_database
   fi
   [ -f "${SQL_FILE}" ] || fail "缺少初始化 SQL：${SQL_FILE}"
+
+  # 过滤 dump 自带的建库/切库语句，并再次扫描，出现任何库级语句立即终止
+  local filtered
+  filtered="$(mktemp)"
+  sed -e 's|^[[:space:]]*CREATE DATABASE.*$|-- skipped by init-db.sh: CREATE DATABASE|' \
+      -e 's|^[[:space:]]*[Uu][Ss][Ee][[:space:]].*;.*$|-- skipped by init-db.sh: USE|' \
+      -e 's|^[[:space:]]*DROP DATABASE.*$|-- skipped by init-db.sh: DROP DATABASE|' \
+      -e 's|^[[:space:]]*ALTER DATABASE.*$|-- skipped by init-db.sh: ALTER DATABASE|' \
+      "${SQL_FILE}" > "${filtered}"
+  if grep -nEi '^[[:space:]]*(CREATE|DROP|ALTER)[[:space:]]+DATABASE|^[[:space:]]*USE[[:space:]]' "${filtered}"; then
+    rm -f "${filtered}"
+    fail "初始化 SQL 中仍存在库级语句（CREATE/DROP/ALTER DATABASE 或 USE），已中止导入"
+  fi
+
   log "导入初始化 SQL（当前 ${tables:-0} 张表）"
-  mysql_exec --force -e "CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` DEFAULT CHARACTER SET utf8mb4" || true
-  # 注意：opensign.sql 内含 `CREATE DATABASE opensign` 与 `use opensign;`，
-  # 若不剔除，导入会无视 MYSQL_DATABASE 直接写进 opensign 库（曾因此误伤主库）。
-  # 这里把这两条语句替换为注释，保证导入目标严格等于 ${MYSQL_DATABASE}。
-  sed -e 's|^[[:space:]]*CREATE DATABASE[[:space:]]*`opensign`.*$|-- skipped by init-db.sh: CREATE DATABASE opensign|' \
-      -e 's|^[[:space:]]*[Uu][Ss][Ee][[:space:]]*opensign[[:space:]]*;.*$|-- skipped by init-db.sh: use opensign|' \
-      "${SQL_FILE}" \
-    | docker exec -i kfq-mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" --force --default-character-set=utf8mb4 "${MYSQL_DATABASE}" 2>/dev/null
+  docker exec -i kfq-mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+    --default-character-set=utf8mb4 "${MYSQL_DATABASE}" < "${filtered}"
+  rm -f "${filtered}"
   DB_FRESH_IMPORT=1
+  assert_schema_loaded
   log "导入完成（$(mysql_exec -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}'") 张表）"
 }
 
@@ -142,7 +215,24 @@ SQL
   re_exists="$(mysql_exec -N -B "${MYSQL_DATABASE}" -e "SELECT COUNT(*) FROM sign_re WHERE id='${POVERTY_RE_ID}'" || echo 0)"
   re_exists="${re_exists//[^0-9]/}"
   if [ "${re_exists:-0}" -eq 0 ]; then
-    mysql_exec "${MYSQL_DATABASE}" -e "UPDATE sign_re SET id='${POVERTY_RE_ID}' WHERE id=(SELECT id FROM (SELECT id FROM sign_re ORDER BY create_time LIMIT 1) t)"
+    # 不再重命名既有业务线主键（会破坏既有引用），改为复制一条模板业务线为新行
+    local template_id
+    template_id="$(mysql_exec -N -B "${MYSQL_DATABASE}" -e "SELECT id FROM sign_re WHERE id='1' LIMIT 1" || true)"
+    template_id="$(printf '%s' "${template_id}" | head -n 1 | tr -d '[:space:]')"
+    if [ -z "${template_id}" ]; then
+      template_id="$(mysql_exec -N -B "${MYSQL_DATABASE}" -e "SELECT id FROM sign_re ORDER BY create_time LIMIT 1" || true)"
+      template_id="$(printf '%s' "${template_id}" | head -n 1 | tr -d '[:space:]')"
+    fi
+    if [ -z "${template_id}" ]; then
+      fail "sign_re 中没有任何模板业务线，无法初始化 ${POVERTY_RE_ID}；请先通过系统创建业务线"
+    fi
+    log "业务线 ${POVERTY_RE_ID} 不存在，从模板 ${template_id} 复制新业务线（不修改既有记录）"
+    mysql_exec "${MYSQL_DATABASE}" <<SQL
+CREATE TEMPORARY TABLE _kfq_re_template AS SELECT * FROM sign_re WHERE id='${template_id}';
+UPDATE _kfq_re_template SET id='${POVERTY_RE_ID}', name='贫困生资助业务线';
+INSERT INTO sign_re SELECT * FROM _kfq_re_template;
+DROP TEMPORARY TABLE _kfq_re_template;
+SQL
   fi
 
   mysql_exec "${MYSQL_DATABASE}" <<SQL
@@ -169,6 +259,15 @@ configure_sms_code_mode() {
   case "$(printf '%s' "${SEND_RANDOM_SMS_CODE}" | tr '[:upper:]' '[:lower:]')" in
     1|true|yes|on) want="true" ;;
   esac
+  # 固定调试码属于不安全模式，必须显式声明接受风险才允许
+  if [ "${want}" = "false" ]; then
+    case "$(printf '%s' "${ALLOW_INSECURE_SMS_DEBUG}" | tr '[:upper:]' '[:lower:]')" in
+      1|true|yes|on)
+        log "警告：短信验证码使用固定调试码（KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG=true），仅限构建调试" ;;
+      *)
+        fail "KAIFANGQIAN_SEND_RANDOM_SMS_CODE=false 属不安全调试模式；如确需固定验证码，请显式设置 KAIFANGQIAN_ALLOW_INSECURE_SMS_DEBUG=true" ;;
+    esac
+  fi
 
   local cnt
   cnt="$(mysql_exec -N -B "${MYSQL_DATABASE}" -e "SELECT COUNT(*) FROM sys_config WHERE type='send_message'" || echo 0)"
@@ -253,20 +352,89 @@ SQL
   log "管理员密码已写入，用户名 ${ADMIN_USER}（密码见 .env）"
 }
 
+check_env_security() {
+  # .env 权限收紧，避免同机其他用户读取数据库/管理员口令
+  local perms
+  perms="$(stat -c '%a' "${ENV_FILE}" 2>/dev/null || echo '')"
+  if [ -n "${perms}" ] && [ "${perms}" != "600" ] && [ "${perms}" != "400" ]; then
+    fail "请先收紧 ${ENV_FILE} 权限（当前 ${perms}，要求 600）"
+  fi
+  # 默认/弱口令直接拒绝启动
+  local weak='123456 password root admin KfqPoc2026Root KfqPoc2026Redis Kfq@2026Poc'
+  local name value w
+  for name in MYSQL_ROOT_PASSWORD REDIS_PASSWORD KAIFANGQIAN_ADMIN_PASSWORD POWERJOB_DB_PASSWORD; do
+    value="${!name:-}"
+    if [ -z "${value}" ]; then
+      fail "${name} 未配置（生产必须显式配置强口令）"
+    fi
+    for w in ${weak}; do
+      if [ "${value}" = "${w}" ]; then
+        fail "${name} 使用了弱口令/默认口令，请更换后再初始化"
+      fi
+    done
+  done
+}
+
+ensure_powerjob_db_user() {
+  log "确保 PowerJob 专用数据库账号（${POWERJOB_DB_USER}，最小权限，不使用 root）"
+  mysql_exec -e "CREATE USER IF NOT EXISTS '${POWERJOB_DB_USER}'@'%' IDENTIFIED BY '${POWERJOB_DB_PASSWORD}'"
+  mysql_exec -e "ALTER USER '${POWERJOB_DB_USER}'@'%' IDENTIFIED BY '${POWERJOB_DB_PASSWORD}'"
+  mysql_exec -e "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES, DROP, CREATE TEMPORARY TABLES, LOCK TABLES ON \`${MYSQL_DATABASE}\`.* TO '${POWERJOB_DB_USER}'@'%'"
+  mysql_exec -e "FLUSH PRIVILEGES"
+}
+
+ensure_local_ca_password() {
+  # 已有 PFX 若仍使用旧固定口令 123456，则一次性迁移到 .env 中的新口令；绝不删除重建证书。
+  local ca_rel="${KFQ_LOCAL_CA_DIR:-/app/storage/local-ca}"
+  ca_rel="${ca_rel#/app/storage/}"
+  local pfx="/data/${ca_rel}/kfq-local-signer.pfx"
+  local ca_image="${KFQ_CA_IMAGE:-eclipse-temurin:8-jre}"
+  if ! docker volume inspect kfq-storage >/dev/null 2>&1; then
+    log "未找到数据卷 kfq-storage，跳过本地签名证书口令检查"
+    return 0
+  fi
+  if ! docker run --rm -v kfq-storage:/data --entrypoint sh "${ca_image}" -c "test -f '${pfx}'" >/dev/null 2>&1; then
+    log "本地签名证书尚未生成，首次签署时使用新口令创建"
+    return 0
+  fi
+  if docker run --rm -v kfq-storage:/data --entrypoint sh "${ca_image}" -c "keytool -list -keystore '${pfx}' -storepass '${LOCAL_CA_PASSWORD}' >/dev/null 2>&1"; then
+    log "本地签名证书口令校验通过"
+    return 0
+  fi
+  if docker run --rm -v kfq-storage:/data --entrypoint sh "${ca_image}" -c "keytool -list -keystore '${pfx}' -storepass '123456' >/dev/null 2>&1"; then
+    log "检测到旧固定口令证书，迁移到新口令（原子替换，不重建 CA）"
+    docker run --rm -v kfq-storage:/data --entrypoint sh "${ca_image}" -c "
+      set -e
+      keytool -importkeystore -noprompt \
+        -srckeystore '${pfx}' -srcstoretype PKCS12 -srcstorepass '123456' \
+        -destkeystore '${pfx}.new' -deststoretype PKCS12 -deststorepass '${LOCAL_CA_PASSWORD}' -destkeypass '${LOCAL_CA_PASSWORD}'
+      chmod 600 '${pfx}.new'
+      mv -f '${pfx}.new' '${pfx}'
+    " || fail "本地签名证书口令迁移失败，请人工处理（不要删除证书）"
+    log "本地签名证书口令迁移完成"
+  else
+    fail "本地签名证书无法用新口令或旧固定口令打开，拒绝重建；请人工确认 ${pfx}"
+  fi
+}
+
 main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --reset-admin-password) RESET_ADMIN_PASSWORD=1; shift ;;
-      *) fail "未知参数：$1（可用：--reset-admin-password）" ;;
+      --force-init) FORCE_INIT=1; shift ;;
+      *) fail "未知参数：$1（可用：--reset-admin-password、--force-init）" ;;
     esac
   done
+  check_env_security
   wait_mysql
   import_schema_if_empty
   fix_app_address
   ensure_api_developer
   ensure_api_keypair
   ensure_operator_and_business_line
+  ensure_powerjob_db_user
   configure_sms_code_mode
+  ensure_local_ca_password
   ensure_admin_password
   log "数据库初始化完成"
 }
