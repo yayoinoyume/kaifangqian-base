@@ -141,6 +141,8 @@ services:
       JOB_SERVER: kfq-powerjob:7990
       # 本地签名证书（PFX）口令：必填，无弱默认值
       KFQ_LOCAL_CA_PASSWORD: ${KFQ_LOCAL_CA_PASSWORD:?KFQ_LOCAL_CA_PASSWORD 未配置（见 .env.example）}
+      # 本地实名认证短路开关：默认 false（安全失败）；仅明确接受“无真实实名”的私有化部署才可置 true
+      SERVICE_LOCAL_AUTH_ENABLED: ${SERVICE_LOCAL_AUTH_ENABLED:-false}
       STORAGE_ACTIVE: local
       OSS_ACCESSKEYID: unused
       OSS_ACCESSKEYSECRET: unused
