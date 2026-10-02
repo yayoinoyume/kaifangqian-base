@@ -13,6 +13,7 @@
 
 * GET / DELETE：对 **规范化查询参数 + 时间戳后缀** 签名。
   参数按参数名升序，格式 `k=v`，空值参数也参与（拼成 k=），
+  空白参数名（None/空串/纯空白）跳过（与服务端 ApiSignature.getSignCheckContent 一致），
   参数名与值均按 RFC 3986 百分号编码（未保留字符保留，其余大写 %XX），
   最后再追加 "&timestamp=<毫秒>&nonce=<随机串>"。
 
@@ -125,9 +126,15 @@ def _rfc3986(value) -> str:
 
 
 def _sign_get_params(params: dict) -> str:
-    """GET/DELETE 的签名内容：按 key 升序、RFC3986 编码，空值也参与（拼成 k=）。"""
+    """GET/DELETE 的签名内容：按 key 升序、RFC3986 编码，空值也参与（拼成 k=）。
+
+    与服务端 ApiSignature.getSignCheckContent 一致：空白参数名（None/空串/纯空白）跳过，
+    否则调用方传入空键会导致签名必然不一致。
+    """
     pairs = []
     for key in sorted(params.keys()):
+        if key is None or str(key).strip() == "":
+            continue
         value = params[key]
         if value is None:
             continue

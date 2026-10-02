@@ -3,7 +3,7 @@
 #
 # 依次完成：
 #   1. 等待 MySQL 就绪
-#   2. 空库（0 张表）时导入 kaifangqian-parent/sql/opensign.sql（152 张表）；非空库拒绝导入，
+#   2. 空库（0 张表）时导入 kaifangqian-parent/sql/opensign.sql；非空库拒绝导入，
 #      确需重建必须显式传 --force-init（导入前强制 mysqldump 备份）
 #   3. 修正 sys_app_info.app_address（签署跳转链接依赖，缺端口会导致打开报错页）
 #   4. 确保 OpenAPI 开发者凭据存在：token 随机生成并写入 .env（不纳入 git）
@@ -111,11 +111,14 @@ backup_database() {
 }
 
 assert_schema_loaded() {
-  local tables
+  local tables expected
   tables="$(mysql_exec -N -B -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}'" || echo 0)"
   tables="${tables//[^0-9]/}"
-  if [ "${tables:-0}" -lt 152 ]; then
-    fail "导入后表数量异常（${tables:-0} < 152），请检查导入日志或用备份回滚"
+  # 期望表数从初始化 SQL 动态统计 CREATE TABLE，避免 SQL 增删表后写死数字误报阻断
+  expected="$(grep -ciE '^[[:space:]]*CREATE[[:space:]]+TABLE' "${SQL_FILE}" || true)"
+  expected="${expected//[^0-9]/}"
+  if [ "${expected:-0}" -gt 0 ] && [ "${tables:-0}" -lt "${expected:-0}" ]; then
+    fail "导入后表数量异常（${tables:-0} < SQL 中的 CREATE TABLE 数 ${expected}），请检查导入日志或用备份回滚"
   fi
   local t cnt
   for t in sys_user sign_re api_developer_manage sys_app_info sys_config; do
@@ -352,6 +355,17 @@ SQL
   log "管理员密码已写入，用户名 ${ADMIN_USER}（密码见 .env）"
 }
 
+# 口令字符安全校验：拒绝会破坏 SQL 字符串（单引号/反斜杠）或 shell 包裹（换行）的字符。
+# 自动生成的 hex 口令（ensure_secret）只含 [0-9a-f]，天然通过。
+validate_secret_chars() {
+  local name="$1" value="${!1:-}"
+  case "${value}" in
+    *"'"*|*'"'*|*"\\"*|*$'\n'*|*$'\r'*)
+      fail "${name} 含非法字符（不允许单引号、双引号、反斜杠、换行），请改用其他强口令"
+      ;;
+  esac
+}
+
 check_env_security() {
   # .env 权限收紧，避免同机其他用户读取数据库/管理员口令
   local perms
@@ -359,14 +373,15 @@ check_env_security() {
   if [ -n "${perms}" ] && [ "${perms}" != "600" ] && [ "${perms}" != "400" ]; then
     fail "请先收紧 ${ENV_FILE} 权限（当前 ${perms}，要求 600）"
   fi
-  # 默认/弱口令直接拒绝启动
+  # 默认/弱口令直接拒绝启动；KFQ_LOCAL_CA_PASSWORD 亦纳入弱口令黑名单
   local weak='123456 password root admin KfqPoc2026Root KfqPoc2026Redis Kfq@2026Poc'
   local name value w
-  for name in MYSQL_ROOT_PASSWORD REDIS_PASSWORD KAIFANGQIAN_ADMIN_PASSWORD POWERJOB_DB_PASSWORD; do
+  for name in MYSQL_ROOT_PASSWORD REDIS_PASSWORD KAIFANGQIAN_ADMIN_PASSWORD POWERJOB_DB_PASSWORD KFQ_LOCAL_CA_PASSWORD; do
     value="${!name:-}"
     if [ -z "${value}" ]; then
       fail "${name} 未配置（生产必须显式配置强口令）"
     fi
+    validate_secret_chars "${name}"
     for w in ${weak}; do
       if [ "${value}" = "${w}" ]; then
         fail "${name} 使用了弱口令/默认口令，请更换后再初始化"

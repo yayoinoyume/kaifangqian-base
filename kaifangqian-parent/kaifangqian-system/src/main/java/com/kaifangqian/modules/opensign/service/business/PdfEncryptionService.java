@@ -21,6 +21,7 @@
  */
 package com.kaifangqian.modules.opensign.service.business;
 
+import com.kaifangqian.utils.MyStringUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
@@ -28,6 +29,7 @@ import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
@@ -44,6 +46,19 @@ public class PdfEncryptionService {
     private Boolean pdfEncryptionFlag;
     @Value("${paas.pdf-encryption-password}")
     private String pdfEncryptionPassword;
+
+    /**
+     * 安全失败：开启 PDF 加密但未配置口令时拒绝启动，避免使用空口令或历史弱默认值。
+     * 未开启加密（默认）时不校验，不影响本地 PDF 签名链路。
+     */
+    @PostConstruct
+    public void validatePasswordWhenEnabled() {
+        if (Boolean.TRUE.equals(pdfEncryptionFlag) && MyStringUtils.isBlank(pdfEncryptionPassword)) {
+            throw new IllegalStateException(
+                    "已开启 PDF 加密（paas.pdf-encryption-enable=true）但未配置口令"
+                            + "（paas.pdf-encryption-password / PAAS_PDF_ENCRYPTION_PASSWORD），拒绝启动");
+        }
+    }
 
 
     /**
