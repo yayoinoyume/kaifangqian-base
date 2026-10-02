@@ -12,12 +12,18 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -53,24 +59,75 @@ public final class LocalCertificateManager {
 
     public static synchronized LocalCertificateMaterial loadOrCreate(String directory, String password) throws Exception {
         Path dir = Paths.get(directory);
+        Files.createDirectories(dir);
+        setPermissions(dir, "rwx------");
+
         Path pfxPath = dir.resolve(SIGNER_PFX_FILE);
         Path rootPath = dir.resolve(ROOT_CA_FILE);
+        Path lockPath = dir.resolve(".kfq-local-ca.lock");
 
-        if (Files.isRegularFile(pfxPath) && Files.isRegularFile(rootPath)
-                && Files.size(pfxPath) > 0 && Files.size(rootPath) > 0) {
-            return new LocalCertificateMaterial(Files.readAllBytes(pfxPath), Files.readAllBytes(rootPath));
+        // 文件锁保证多容器/多进程共享同一数据卷时不会并发生成、互相覆盖；synchronized 只覆盖单 JVM
+        try (FileChannel lockChannel = FileChannel.open(lockPath,
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             FileLock ignored = lockChannel.lock()) {
+            boolean pfxPresent = Files.isRegularFile(pfxPath) && Files.size(pfxPath) > 0;
+            boolean rootPresent = Files.isRegularFile(rootPath) && Files.size(rootPath) > 0;
+
+            if (pfxPresent && rootPresent) {
+                byte[] pfxBytes = Files.readAllBytes(pfxPath);
+                byte[] rootBytes = Files.readAllBytes(rootPath);
+                // 已有证书必须能用当前口令打开；打不开说明口令变更或文件损坏，直接报错，绝不静默重建整套 CA
+                verifyPfx(pfxBytes, password, pfxPath);
+                return new LocalCertificateMaterial(pfxBytes, rootBytes);
+            }
+            if (pfxPresent || rootPresent) {
+                throw new IOException("本地证书文件不完整（PFX/CRT 仅存在其一），拒绝自动重建以免信任链漂移：" + dir);
+            }
+
+            LocalCertificateMaterial material = generate(password);
+            writeAtomic(pfxPath, material.getPfxBytes());
+            writeAtomic(rootPath, material.getRootCertificatePem());
+            return material;
         }
+    }
 
-        Files.createDirectories(dir);
-        LocalCertificateMaterial material = generate(password);
-        Files.write(pfxPath, material.getPfxBytes());
-        Files.write(rootPath, material.getRootCertificatePem());
+    /**
+     * 校验已有 PFX 能用当前口令打开，避免“口令变更/文件损坏被当作缺失”后静默换掉整套 CA。
+     */
+    private static void verifyPfx(byte[] pfxBytes, String password, Path pfxPath) throws Exception {
         try {
-            Files.setPosixFilePermissions(pfxPath, PosixFilePermissions.fromString("rw-------"));
-        } catch (UnsupportedOperationException ignored) {
+            KeyStore keyStore = KeyStore.getInstance("PKCS12");
+            keyStore.load(new ByteArrayInputStream(pfxBytes), password.toCharArray());
+            if (!keyStore.containsAlias(SIGNER_ALIAS)) {
+                throw new IOException("PFX 中缺少别名 " + SIGNER_ALIAS);
+            }
+        } catch (IOException e) {
+            throw new IOException("本地签名证书无法用当前口令打开（口令错误或文件损坏）：" + pfxPath
+                    + "。如为口令轮换，请先按部署文档迁移证书，禁止删除后重建。", e);
+        }
+    }
+
+    /**
+     * 先写同目录临时文件、设 600 权限，再原子 move 落位；失败清理半成品。
+     */
+    private static void writeAtomic(Path target, byte[] bytes) throws IOException {
+        Path temp = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        try {
+            Files.write(temp, bytes);
+            setPermissions(temp, "rw-------");
+            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException | RuntimeException e) {
+            Files.deleteIfExists(temp);
+            throw e;
+        }
+    }
+
+    private static void setPermissions(Path path, String permissions) {
+        try {
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(permissions));
+        } catch (UnsupportedOperationException | IOException ignored) {
             // Windows 等不支持 POSIX 权限的文件系统直接跳过
         }
-        return material;
     }
 
     private static LocalCertificateMaterial generate(String password) throws Exception {

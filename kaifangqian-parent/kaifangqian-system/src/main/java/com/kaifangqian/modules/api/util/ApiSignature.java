@@ -35,6 +35,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.util.EntityUtils;
 
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 /**
@@ -76,25 +77,67 @@ public class ApiSignature {
     }
 
 
+    /**
+     * 生成 GET/DELETE 的待签名内容。
+     *
+     * 规范化规则（客户端必须与服务端完全一致）：
+     *   1. 参与签名的参数集合与业务可见的参数集合一致，空值参数也参与（拼成 k=）；
+     *   2. 参数名按升序排列；
+     *   3. 参数名与参数值都按 RFC 3986 百分号编码，消除 & / = 等分隔符带来的歧义；
+     *   4. 重复参数名属于非法请求，由调用方在验签前拒绝。
+     */
     public static String getSignCheckContent(Map<String, String> params) {
         if (params == null) {
-            return null;
+            return "";
         }
         StringBuilder content = new StringBuilder();
         List<String> keys = new ArrayList<String>(params.keySet());
         Collections.sort(keys);
 
-        int index = 0;
         for (int i = 0; i < keys.size(); i++) {
             String key = keys.get(i);
-            String value = params.get(key);
-            if (MyStringUtils.isNotBlank(key) && MyStringUtils.isNotBlank(value)) {
-                content.append((index == 0 ? "" : "&") + key + "=" + value);
-                index++;
+            if (MyStringUtils.isBlank(key)) {
+                continue;
             }
+            String value = params.get(key);
+            if (value == null) {
+                value = "";
+            }
+            if (content.length() > 0) {
+                content.append('&');
+            }
+            content.append(encodeRfc3986(key)).append('=').append(encodeRfc3986(value));
         }
 
         return content.toString();
+    }
+
+    /**
+     * RFC 3986 百分号编码：仅保留未保留字符（A-Za-z0-9-_.~），其余按 UTF-8 字节大写十六进制编码。
+     * 客户端（Python signed_client.py 的 quote(safe="-_.~")）必须使用同一规则。
+     */
+    private static String encodeRfc3986(String value) {
+        if (value == null) {
+            return "";
+        }
+        try {
+            byte[] bytes = value.getBytes("UTF-8");
+            StringBuilder encoded = new StringBuilder(bytes.length);
+            for (byte b : bytes) {
+                int c = b & 0xFF;
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+                        || c == '-' || c == '_' || c == '.' || c == '~') {
+                    encoded.append((char) c);
+                } else {
+                    encoded.append('%');
+                    encoded.append(Character.toUpperCase(Character.forDigit((c >> 4) & 0xF, 16)));
+                    encoded.append(Character.toUpperCase(Character.forDigit(c & 0xF, 16)));
+                }
+            }
+            return encoded.toString();
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException("UTF-8 不受支持", e);
+        }
     }
 
     //生成签名值

@@ -87,7 +87,7 @@ spring:
         master:
           url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:opensign}?characterEncoding=UTF-8&useUnicode=true&useSSL=false&tinyInt1isBit=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
           username: ${MYSQL_USERNAME:root}
-          password: ${MYSQL_PASSWORD:123456}
+          password: ${MYSQL_PASSWORD}
           driver-class-name: com.mysql.cj.jdbc.Driver
   # redis（lettuce）配置（保留两种redis工具：redisson（官方推荐）+lettuce）。redisson暂时用作分布式锁。lettuce做字符串操作等。
   redis:
@@ -249,6 +249,9 @@ powerjob:
     app-id: 6
 
 service:
+  # 本地实名认证开关：默认 false（安全失败）。仅明确接受“无真实实名”的本地私有化部署才可置 true；
+  # 置 true 时实名认证走本地短路，不校验真实身份材料，仅适用于本项目的本地私有化交付形态。
+  local-auth-enabled: true
   # 弃用该配置
   base-host: ''
   token: ${TOKEN:iinHstP/OFm7N/W1vDaFVAZ8mmb5BtUI7YJrX4oJcZKYVl6zUijHPaGOE/7cAmQvqSBudRZSYRaVvsotD+Jdfm9DphMY/6A4JKXmSGwyJRP+qgQDA/dC1IRE+zurtfkkr8JX5xJtQxc8TutfD0Qvgt1QpBrH+TTQm8F4gridH3FdhphiO90963Cu9FtrWHgn+7tyi09DRZEJKzKr16/jxlZGlLCKBSa/he2etkQUIJSyCbt2OB8WBP2+3T5lljML0jq9y1ZzODXNU/xZY5BuaVJR9Hxqm9b7kYygEMCYUzXRpno5pMiMUtB732KFjyu8OAcTsF7X+lI9odZOl2RDzx7/Vy6eAyzGyYg5vF79leWhlP2q+EX7XBc4xC5+5c+tXIiRkf+JNqHMroFhVnvd923BYkzkDGHW9CsMzipSZRRpV5oZchhFqPwb2L0e+8zmm9idIv3xf8xHt3hGhSbrkWGebd9SzDLozES4LnQtv1sGp7WLqaOcsj8QAI7/TL6yZReCBbDnuPAchOcIRZTQohiDrn9eZyKRrZdmhhDn8Dgt1oYVhIsrQa5r5Ornxn61dGA679NgK/7vOUP5V3HfwxW3eSkYBWaH/sexEPdaHo+Oh4XGc9GtF8eni5V7+Vn82xkKosM4qDAWXvQL23w0C/SUlptsj6LB1JExb0FEkfqgtGbnc4lEF0eEx3uM+tCJPUSOTCklZV+jXzjmz/hVNhQ0yb0vw9DMzmP+S1oTP9Z/tn7izaai+QUZtmWWk7i4RUhsd1pCvVrCEsy+cWHRFdAj5ACEkKlSB2keIgKf8eBcqJpMAaSjX0l+R2fKrvLV8vsTr8hMDPnO+Fm/DGwvJxr3Kvu/Ch3gbFJ6i3GxSBK15Fi3p4GzjasN5B+Ho+gGvkVB8gGj69ZFLg0OQtfHn2n2WdpuO77JNlAGb2aav83Fajvh968N6pGhNWoNFIzDLjLJX7XmWvkqIL4j8tbC/P4OHsREuYlLRLhUOrkbp1Saj5eeIiJK0mhsDeWi7WbI}

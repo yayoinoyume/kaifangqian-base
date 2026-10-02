@@ -37,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -56,12 +57,18 @@ import java.util.UUID;
 @Service
 public class PdfSignService {
 
-    private static final String LOCAL_SIGN_CERT_PASSWORD = "123456";
     private static final String LOCAL_CA_DIR_PROPERTY = "kfq.local-ca.dir";
     private static final String LOCAL_CA_DIR_DEFAULT = "/app/storage/local-ca";
 
     @Autowired
     private PdfEncryptionService pdfEncryptionService;
+
+    /**
+     * 本地签名证书（PFX）口令，必须由部署方通过 kfq.local-ca.password（环境变量 KFQ_LOCAL_CA_PASSWORD）注入；
+     * 不允许硬编码弱口令，未配置时直接失败。
+     */
+    @Value("${kfq.local-ca.password:}")
+    private String localSignCertPassword;
 
     public Integer getPdfPage(byte[] pdfByte){
         Integer page = 0 ;
@@ -183,10 +190,13 @@ public class PdfSignService {
 
     private LocalPdfSigner loadLocalSigner() {
         try {
+            if (MyStringUtils.isBlank(localSignCertPassword)) {
+                throw new PaasException("未配置本地签名证书口令 kfq.local-ca.password（KFQ_LOCAL_CA_PASSWORD），拒绝使用弱默认口令");
+            }
             String caDirectory = System.getProperty(LOCAL_CA_DIR_PROPERTY, LOCAL_CA_DIR_DEFAULT);
             LocalCertificateManager.LocalCertificateMaterial material =
-                    LocalCertificateManager.loadOrCreate(caDirectory, LOCAL_SIGN_CERT_PASSWORD);
-            return new LocalPdfSigner(material.getPfxBytes(), LOCAL_SIGN_CERT_PASSWORD);
+                    LocalCertificateManager.loadOrCreate(caDirectory, localSignCertPassword);
+            return new LocalPdfSigner(material.getPfxBytes(), localSignCertPassword);
         } catch (Exception e) {
             throw new PaasException("本地签名证书初始化失败", e);
         }

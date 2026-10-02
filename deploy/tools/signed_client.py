@@ -7,14 +7,17 @@
 私钥由调用方自己保管。
 
 == 两种签名规则（务必区分） ==
-* POST / PUT：对 **原始请求体字符串** 签名。
-  也就是你实际发出去的那串 JSON 文本，必须逐字节一致（不要先格式化或多带换行后再签）。
+* POST / PUT：对 **原始请求体字符串 + 时间戳后缀** 签名。
+  也就是你实际发出去的那串 JSON 文本（逐字节一致），再追加
+  "&timestamp=<毫秒>&nonce=<随机串>" 后签名。
 
-* GET / DELETE：对 **查询参数排序拼接串** 签名。
-  拼接规则：按参数名升序，格式 `k1=v1&k2=v2`，值为空的参数直接跳过。
-  例：{"b":"2","a":"1"} -> "a=1&b=2"
+* GET / DELETE：对 **规范化查询参数 + 时间戳后缀** 签名。
+  参数按参数名升序，格式 `k=v`，空值参数也参与（拼成 k=），
+  参数名与值均按 RFC 3986 百分号编码（未保留字符保留，其余大写 %XX），
+  最后再追加 "&timestamp=<毫秒>&nonce=<随机串>"。
 
-签名结果用 Base64 编码，放在请求头 `sign` 里。
+签名结果用 Base64 编码，放在请求头 `sign` 里；`timestamp` 与 `nonce` 同时放在同名请求头，
+服务端会校验 ±5 分钟时间窗口并对 nonce 做一次性消费（防重放）。
 
 == 凭据从哪来（代码里不含任何凭据） ==
 * token：`deploy/compose/.env` 的 `KAIFANGQIAN_API_TOKEN`（可用环境变量 KFQ_TOKEN 覆盖）
@@ -39,6 +42,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -115,9 +119,25 @@ def _common(payload: dict | None) -> dict:
     return data
 
 
+def _rfc3986(value) -> str:
+    """RFC 3986 百分号编码，与服务端 ApiSignature.encodeRfc3986 保持一致。"""
+    return urllib.parse.quote(str(value), safe="-_.~")
+
+
 def _sign_get_params(params: dict) -> str:
-    """GET/DELETE 的签名内容：按 key 升序拼接，跳过空值。"""
-    return "&".join(f"{k}={v}" for k, v in sorted(params.items()) if v not in (None, ""))
+    """GET/DELETE 的签名内容：按 key 升序、RFC3986 编码，空值也参与（拼成 k=）。"""
+    pairs = []
+    for key in sorted(params.keys()):
+        value = params[key]
+        if value is None:
+            continue
+        pairs.append(f"{_rfc3986(key)}={_rfc3986(value)}")
+    return "&".join(pairs)
+
+
+def _time_nonce_suffix(timestamp: str, nonce: str) -> str:
+    """把 timestamp/nonce 追加到待签名内容，保证二者不可被篡改。"""
+    return f"&timestamp={timestamp}&nonce={nonce}"
 
 
 def _read_response(req: urllib.request.Request, raw: bool):
@@ -135,25 +155,38 @@ def _read_response(req: urllib.request.Request, raw: bool):
 
 
 def post(path: str, payload: dict | None = None, raw: bool = False):
-    """POST：对原始请求体签名。"""
+    """POST：对原始请求体 + timestamp/nonce 后缀签名。"""
     data = _common(payload)
     body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-    sign = sign_content(body.decode("utf-8"))
+    timestamp = str(int(time.time() * 1000))
+    nonce = uuid.uuid4().hex
+    sign = sign_content(body.decode("utf-8") + _time_nonce_suffix(timestamp, nonce))
     req = urllib.request.Request(
         BASE + path,
         data=body,
-        headers={"Content-Type": "application/json", "sign": sign},
+        headers={
+            "Content-Type": "application/json",
+            "sign": sign,
+            "timestamp": timestamp,
+            "nonce": nonce,
+        },
         method="POST",
     )
     return _read_response(req, raw)
 
 
 def get(path: str, params: dict | None = None, raw: bool = False):
-    """GET：对排序拼接后的查询参数签名。"""
+    """GET：对规范化查询参数 + timestamp/nonce 后缀签名。"""
     query_params = _common(params)
+    timestamp = str(int(time.time() * 1000))
+    nonce = uuid.uuid4().hex
+    sign = sign_content(_sign_get_params(query_params) + _time_nonce_suffix(timestamp, nonce))
     url = BASE + path + "?" + urllib.parse.urlencode(query_params)
-    sign = sign_content(_sign_get_params(query_params))
-    req = urllib.request.Request(url, headers={"sign": sign}, method="GET")
+    req = urllib.request.Request(
+        url,
+        headers={"sign": sign, "timestamp": timestamp, "nonce": nonce},
+        method="GET",
+    )
     return _read_response(req, raw)
 
 

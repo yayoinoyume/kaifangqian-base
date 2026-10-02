@@ -73,6 +73,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -154,6 +155,19 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
     @Value("${service.manage.yundun-auth-get-info-url}")
     private String getYundunGetAuthInfoUrl;
+
+    /**
+     * 本地实名认证开关。默认 false（安全失败）；仅明确接受“无真实实名”的本地私有化部署才可在配置中显式置 true。
+     */
+    @Value("${service.local-auth-enabled:false}")
+    private boolean localAuthEnabledConfig;
+
+    @PostConstruct
+    public void logLocalAuthMode() {
+        if (localAuthEnabledConfig) {
+            log.warn("[本地实名认证] service.local-auth-enabled=true：实名认证将走本地短路，不校验真实身份材料，仅适用于明确接受无实名的本地私有化部署");
+        }
+    }
 
     @Override
     public IdentityAuthResponse personalIdentityAuth(String callbackPage) throws Exception {
@@ -876,7 +890,7 @@ public class IdentityAuthExternalImpl implements IdentityAuthExternal {
 
 
     private boolean localAuthEnabled() {
-        return true;
+        return localAuthEnabledConfig;
     }
 
     private IdentityAuthResponse markLocalPersonalAuth(String message) {

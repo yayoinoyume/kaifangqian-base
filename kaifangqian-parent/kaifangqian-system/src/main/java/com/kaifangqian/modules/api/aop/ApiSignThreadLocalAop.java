@@ -49,6 +49,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.*;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -56,6 +57,7 @@ import java.io.*;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -78,6 +80,8 @@ public class ApiSignThreadLocalAop {
     private IApiNormalReqService apiNormalReqService;
     @Autowired
     private IApiRelationLinkService apiRelationLinkService;
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
 
     private ThreadLocal<String> requestBodyCache = new ThreadLocal<>();
 
@@ -108,6 +112,10 @@ public class ApiSignThreadLocalAop {
         String token = null;
         String content = null;
         boolean signVerified = false;
+        // 防重放：请求头必须携带 timestamp + nonce，且两者都参与签名，服务端校验时间窗口并用 Redis 一次性消费 nonce
+        String timestamp = request.getHeader(ApiConstants.TIMESTAMP);
+        String nonce = request.getHeader(ApiConstants.NONCE);
+        validateTimestampAndNonce(timestamp, nonce);
         if (request.getMethod().equalsIgnoreCase("POST") || request.getMethod().equalsIgnoreCase("PUT")) {
             // 获取请求体中的JSON数据
             try {
@@ -137,8 +145,8 @@ public class ApiSignThreadLocalAop {
                     //开发者被停用
                     throw new RequestParamsException(token, operatorAccount, uniqueCode, data, ApiCode.DEVELOPER_STOP);
                 }
-                //验签：POST/PUT 对原始请求体做 RSA2(SHA256withRSA) 验签
-                signVerified = verifySign(data, sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
+                //验签：POST/PUT 对原始请求体做 RSA2(SHA256withRSA) 验签，timestamp/nonce 一并纳入签名
+                signVerified = verifySign(buildSignContent(data, timestamp, nonce), sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
             } catch (RequestParamsException e) {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, e.getApiCode(), e.getMessage());
             } catch (IOException e) {
@@ -152,11 +160,11 @@ public class ApiSignThreadLocalAop {
             for (Iterator<String> iter = requestParams.keySet().iterator(); iter.hasNext(); ) {
                 String name = (String) iter.next();
                 String[] values = (String[]) requestParams.get(name);
-                String valueStr = "";
-                for (int i = 0; i < values.length; i++) {
-                    valueStr = (i == values.length - 1) ? valueStr + values[i] : valueStr + values[i] + ",";
+                // 重复参数名无法与业务侧语义一一对应，直接拒绝，避免“签名参数”与“业务参数”不一致
+                if (values != null && values.length > 1) {
+                    throw new RequestParamsException(ApiCode.DATA_CHECK_ERROR, "重复参数：" + name);
                 }
-                params.put(name, valueStr);
+                params.put(name, values == null || values.length == 0 ? "" : values[0]);
             }
             content = params.toString();
             //校验token
@@ -177,8 +185,8 @@ public class ApiSignThreadLocalAop {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, ApiCode.DEVELOPER_STOP);
             }
             try {
-                //验签：GET/DELETE 对排序拼接后的查询参数做 RSA2(SHA256withRSA) 验签
-                signVerified = verifySign(ApiSignature.getSignCheckContent(params), sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
+                //验签：GET/DELETE 对规范化后的查询参数做 RSA2(SHA256withRSA) 验签，timestamp/nonce 一并纳入签名
+                signVerified = verifySign(buildSignContent(ApiSignature.getSignCheckContent(params), timestamp, nonce), sign, developerManage.getPublicKey(), token, operatorAccount, uniqueCode, content);
             } catch (RequestParamsException e) {
                 throw new RequestParamsException(token, operatorAccount, uniqueCode, content, e.getApiCode(), e.getMessage());
             }
@@ -187,6 +195,8 @@ public class ApiSignThreadLocalAop {
         if (!signVerified) {
             throw new RequestParamsException(token, operatorAccount, uniqueCode, content, ApiCode.DATA_CHECK_ERROR);
         }
+        //验签通过后再一次性消费 nonce，避免攻击者用无效签名提前烧掉合法请求的 nonce
+        consumeNonce(nonce);
 
         if (MyStringUtils.isNotBlank(operatorAccount)) {
             //初始化用户数据
@@ -277,6 +287,45 @@ public class ApiSignThreadLocalAop {
             throw new RequestParamsException(token, operatorAccount, uniqueCode, logContent,
                     ApiCode.DATA_CHECK_ERROR, e.getMessage());
         }
+    }
+
+    /**
+     * 校验时间戳与 nonce 是否携带且在允许的时间窗口内（±5 分钟，与回调 AOP 一致）。
+     */
+    private void validateTimestampAndNonce(String timestamp, String nonce) {
+        if (MyStringUtils.isBlank(timestamp)) {
+            throw new RequestParamsException(ApiCode.PARAM_MISSING, "缺少 timestamp 请求头");
+        }
+        if (MyStringUtils.isBlank(nonce)) {
+            throw new RequestParamsException(ApiCode.PARAM_MISSING, "缺少 nonce 请求头");
+        }
+        long requestTime;
+        try {
+            requestTime = Long.parseLong(timestamp);
+        } catch (NumberFormatException e) {
+            throw new RequestParamsException(ApiCode.TIMESTAMP_INVALID);
+        }
+        if (Math.abs(System.currentTimeMillis() - requestTime) > 300000L) {
+            throw new RequestParamsException(ApiCode.TIMESTAMP_INVALID);
+        }
+    }
+
+    /**
+     * 用 Redis SET NX 一次性消费 nonce，重复出现即判定为重放。
+     */
+    private void consumeNonce(String nonce) {
+        Boolean first = redisTemplate.opsForValue()
+                .setIfAbsent("kfq:openapi:nonce:" + nonce, "1", 5, TimeUnit.MINUTES);
+        if (first == null || !first) {
+            throw new RequestParamsException(ApiCode.NONCE_REPEAT);
+        }
+    }
+
+    /**
+     * 把 timestamp/nonce 追加到待签名内容，保证二者不可被篡改。
+     */
+    private String buildSignContent(String content, String timestamp, String nonce) {
+        return content + "&timestamp=" + timestamp + "&nonce=" + nonce;
     }
 
     private String getRequestBody(HttpServletRequest request) throws IOException {
