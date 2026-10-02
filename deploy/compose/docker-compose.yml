@@ -143,6 +143,9 @@ services:
       KFQ_LOCAL_CA_PASSWORD: ${KFQ_LOCAL_CA_PASSWORD:?KFQ_LOCAL_CA_PASSWORD 未配置（见 .env.example）}
       # 本地实名认证短路开关：默认 false（安全失败）；仅明确接受“无真实实名”的私有化部署才可置 true
       SERVICE_LOCAL_AUTH_ENABLED: ${SERVICE_LOCAL_AUTH_ENABLED:-false}
+      # PDF 加密开关与口令：默认关闭；开启时必须配置口令，否则 PdfEncryptionService 拒绝启动
+      PDF_ENCRYPTION_ENABLE: ${PDF_ENCRYPTION_ENABLE:-false}
+      PAAS_PDF_ENCRYPTION_PASSWORD: ${PAAS_PDF_ENCRYPTION_PASSWORD:-}
       STORAGE_ACTIVE: local
       OSS_ACCESSKEYID: unused
       OSS_ACCESSKEYSECRET: unused

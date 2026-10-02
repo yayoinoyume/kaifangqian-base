@@ -355,13 +355,13 @@ SQL
   log "管理员密码已写入，用户名 ${ADMIN_USER}（密码见 .env）"
 }
 
-# 口令字符安全校验：拒绝会破坏 SQL 字符串（单引号/反斜杠）或 shell 包裹（换行）的字符。
-# 自动生成的 hex 口令（ensure_secret）只含 [0-9a-f]，天然通过。
-validate_secret_chars() {
+# SQL/shell 值安全校验：拒绝会破坏单引号包裹 SQL 字符串或 shell 参数的字符。
+# 自动生成的 hex 口令/token（ensure_secret / openssl rand）只含 [0-9a-f]，天然通过。
+validate_sql_safe_value() {
   local name="$1" value="${!1:-}"
   case "${value}" in
     *"'"*|*'"'*|*"\\"*|*$'\n'*|*$'\r'*)
-      fail "${name} 含非法字符（不允许单引号、双引号、反斜杠、换行），请改用其他强口令"
+      fail "${name} 含非法字符（不允许单引号、双引号、反斜杠、换行），请修改后再初始化"
       ;;
   esac
 }
@@ -381,12 +381,19 @@ check_env_security() {
     if [ -z "${value}" ]; then
       fail "${name} 未配置（生产必须显式配置强口令）"
     fi
-    validate_secret_chars "${name}"
+    validate_sql_safe_value "${name}"
     for w in ${weak}; do
       if [ "${value}" = "${w}" ]; then
         fail "${name} 使用了弱口令/默认口令，请更换后再初始化"
       fi
     done
+  done
+  # 其他会被拼入 SQL 的用户可控值：同样做字符安全校验
+  # （KAIFANGQIAN_API_TOKEN 为空时由脚本生成 hex，天然安全；其余为可选默认值）
+  for name in KAIFANGQIAN_API_TOKEN KAIFANGQIAN_APP_ADDRESS KAIFANGQIAN_ADMIN_USER \
+              KAIFANGQIAN_API_DEVELOPER_ID KAIFANGQIAN_API_DEVELOPER_NAME \
+              KAIFANGQIAN_POVERTY_RE_ID POWERJOB_DB_USER MYSQL_DATABASE; do
+    validate_sql_safe_value "${name}"
   done
 }
 
