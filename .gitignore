@@ -18,3 +18,13 @@
 ### Python 运行缓存 ###
 __pycache__/
 *.pyc
+
+### 前端构建副产物（unplugin-vue-components 自动生成 / pnpm 锁文件） ###
+kaifangqian-web/**/components.d.ts
+kaifangqian-web/opensign-manage/pnpm-lock.yaml
+kaifangqian-web/opensign-message/pnpm-lock.yaml
+kaifangqian-web/opensign-mobile/pnpm-lock.yaml
+
+### 本地工作文档与旧归档（不纳入版本管理） ###
+/docs/
+/old-archive-poverty-scholarship-sign/
