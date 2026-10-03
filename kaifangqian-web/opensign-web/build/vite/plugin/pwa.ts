@@ -11,7 +11,7 @@ export function configPwaConfig(env: ViteEnv) {
     // vite-plugin-pwa
     const pwaPlugin = VitePWA({
       manifest: {
-        name: '电子签章',
+        name: '资助审批电子签章系统',
         short_name: VITE_GLOB_APP_SHORT_NAME,
         icons: [
           {

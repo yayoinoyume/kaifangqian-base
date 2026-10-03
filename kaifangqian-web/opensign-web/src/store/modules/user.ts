@@ -495,7 +495,7 @@ export const useUserStore = defineStore({
         try {
           const web:any = await getWebsiteConfig();
           const webConfig:Webconfig =  {
-            websiteTitle:web.website_title || "电子签章",
+            websiteTitle:web.website_title || "资助审批电子签章系统",
             websiteWhiteLogo:web.website_white_logo,
             websiteOtherLogo:web.website_other_logo,
             websiteCopyright: (web.website_copyright || "© 本平台运营方 版权所有") + ` 版本号：${VITE_GLOB_APP_VERSION}`,

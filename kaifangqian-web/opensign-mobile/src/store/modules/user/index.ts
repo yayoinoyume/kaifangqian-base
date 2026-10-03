@@ -179,7 +179,7 @@ export const useUserStore = defineStore('user', {
       if (!this.getWebConfig) {
         const web: any = await Api.getWebsiteConfig();
         const webConfig: any = {
-          websiteTitle: web.result.website_title || '电子签章',
+          websiteTitle: web.result.website_title || '资助审批电子签章系统',
           websiteWhiteLogo: web.result.website_white_logo,
           websiteOtherLogo: web.result.website_other_logo,
           systenAccountType: web.result.system_account_type || 'phone_email',

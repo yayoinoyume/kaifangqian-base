@@ -396,7 +396,7 @@ export const useUserStore = defineStore({
       if(!this.getWebConfig){
         const web:any = await getWebsiteConfig();
         const webConfig:Webconfig =  {
-          websiteTitle:web.website_title || "电子签章",
+          websiteTitle:web.website_title || "资助审批电子签章系统",
           websiteWhiteLogo:web.website_white_logo,
           websiteOtherLogo:web.website_other_logo,
           websiteCopyright: web.website_copyright || "本平台仅用于学习交流",

@@ -7,7 +7,7 @@
     <div :class="prefixCls+ '-header'">
       <div class="header-left">
         <img src="../../../assets/images/logo.png" alt="" style="width:180px"> 
-        <!-- <span class="header-title">首版科技</span> -->
+        <!-- <span class="header-title">资助审批电子签章系统</span> -->
       </div>
       <div class="header-right">
         <!-- <a href="#" target="_blank">帮助文档</a>
