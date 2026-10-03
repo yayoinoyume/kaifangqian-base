@@ -1,7 +1,7 @@
 // /*
-//  * @description 开放签
+//  * @description 资助审批电子签章系统
 //  *
-//  * Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
+//  * Copyright (C) [2025] [版权所有者（本平台运营方）]. All rights reserved.
 //  *
 //  * This program is free software: you can redistribute it and/or modify
 //  * it under the terms of the GNU Affero General Public License as published by

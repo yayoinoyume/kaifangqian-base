@@ -3,9 +3,9 @@ const path = require('path');
 
 // 许可证头部内容
 const LICENSE_HEADER = `/*
- * @description 开放签
+ * @description 资助审批电子签章系统
  *
- * Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
+ * Copyright (C) [2025] [版权所有者（本平台运营方）]. All rights reserved.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -49,7 +49,7 @@ function findFiles(dir, extensions) {
 // 检查文件是否已包含许可证
 function hasLicenseHeader(content) {
   return content.includes('Copyright (C) [2025]') || 
-         content.includes('开放签') ||
+         content.includes('资助审批电子签章系统') ||
          content.includes('AGPLv3');
 }
 

@@ -135,7 +135,7 @@ public class CertHttpService {
 
 //    public static void main(String[] args) {
 //        CertHttpService certHttpService = new CertHttpService();
-//        String dn = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=开放签_Test@测试证书" ;
+//        String dn = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=资助审批电子签章系统_Test@测试证书" ;
 //        CertificationInfo info = new CertificationInfo();
 //        info.setCertDn(dn);
 //        info.setKeyName(keyName);

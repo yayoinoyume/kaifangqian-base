@@ -24,9 +24,9 @@ services -> web -> volumes
 
 # 4、重新部署服务
 
-	#4.1 删除开放签服务
+	#4.1 删除资助审批电子签章系统服务
 	./drop-opensign.sh
-	#4.2 重新部署开放签服务
+	#4.2 重新部署资助审批电子签章系统服务
 	./deploy.sh opensign.yaml
 
 

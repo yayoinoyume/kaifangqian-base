@@ -1,23 +1,5 @@
 /**
  * @description 证书主题信息
- *
- * Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * 注意：本代码基于 AGPLv3 协议发布。若通过网络提供服务（如 Web 应用），
- * 必须公开修改后的完整源代码（包括衍生作品），详见协议全文。
  */
 package com.kaifangqian.modules.opensign.service.tool.pojo;
 
@@ -53,7 +35,7 @@ public class CertSubjectProperty implements Serializable {
     //   L  Locality Name (城市名),eg: Beijing
     private String l ;
 
-    //   O  Organization Name (可以是公司名称),eg: 北京资源律动科技有限公司
+    //   O  Organization Name (可以是公司名称),eg: 本平台运营方
     private String o ;
     //   OU Organizational Unit Name (可以是单位部门名称)
     private String ou ;

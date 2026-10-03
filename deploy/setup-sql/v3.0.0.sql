@@ -33,7 +33,7 @@ UPDATE `sys_permission` SET `delete_flag` = 1 WHERE `id` = 'd0aa8da7-7760-4135-a
 UPDATE `sys_permission` SET `hidden_flag` = 0 WHERE `id` = 'f591252e-7651-45bb-9070-dfe4a15d6ea0' ;
 
 -- 修改短信签名初始值
-UPDATE `sys_config` SET `value` = '北京资源律动科技' WHERE `id` = '5c9ad6af-1eff-ad09-4fb4-49qq22d61607';
+UPDATE `sys_config` SET `value` = '本平台运营方' WHERE `id` = '5c9ad6af-1eff-ad09-4fb4-49qq22d61607';
 
 -- 删除任务调度中不再使用的任务
 UPDATE `job_info` SET `status` = 99 WHERE `id` = 2;

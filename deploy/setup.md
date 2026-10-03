@@ -1,4 +1,4 @@
-# 开放签电子签平台docker安装手册
+# 资助审批电子签章系统docker安装手册
 
 ## 1、将deploy文件夹上传至/home/data/目录下
 ```
@@ -90,11 +90,11 @@ docker cp [容器id]:/back-opensign.sql /home/
 ```
 ./deploy.sh mysql-redis.yaml
 ```
-### 8.3 删除开放签服务
+### 8.3 删除资助审批电子签章系统服务
 ```
 ./drop-opensign.sh
 ```
-### 8.4 重新部署开放签服务
+### 8.4 重新部署资助审批电子签章系统服务
 ```
 ./deploy.sh opensign.yaml
 ```

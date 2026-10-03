@@ -1,23 +1,5 @@
 <!--
-  @description 开放签
-
-  Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
-
-  This program is free software: you can redistribute it and/or modify
-  it under the terms of the GNU Affero General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU Affero General Public License for more details.
-
-  You should have received a copy of the GNU Affero General Public License
-  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-  注意：本代码基于 AGPLv3 协议发布。若通过网络提供服务（如 Web 应用），
-  必须公开修改后的完整源码（包括衍生作品），详见协议全文。
+  @description 资助审批电子签章系统
 -->
 
 <template>
@@ -26,7 +8,7 @@
       <div class="header-left">
         <!-- <img src="../../../assets/images/logo-sign.png" alt="" style="width:150px">  -->
         <img :src="logoBase64" alt="" style="width: 150px" />
-        <!-- <span class="header-title">犀牛PaaS</span> -->
+        <!-- <span class="header-title">资助审批电子签章系统</span> -->
       </div>
       <!-- <div class="header-right">
         <a href="https://www.yuque.com/huxin-ch41t/resrun/akk7i0" target="_blank">帮助文档</a>
@@ -41,7 +23,7 @@
             <!-- <span>QQ群：482074553</span>
             <span>联系电话：15010993257</span>
             <span>邮箱：service@resrun.cn</span>
-            <span>Copyright 2019-2023 北京资源律动科技有限公司</span>
+            <span>Copyright 2019-2023 本平台运营方</span>
             <span> 版权所有</span> -->
           </p>
         </div>
@@ -115,7 +97,7 @@
   const userStore = useUserStore();
   const logoBase64 = ref(defaultLogo);
   const webCopyRight = ref(
-    'QQ群：482074553  联系电话：15010993257  邮箱：service@resrun.cn  Copyright 2019-2023  北京资源律动科技有限公司  版权所有',
+    'QQ群：482074553  联系电话：15010993257  邮箱：service@resrun.cn  Copyright 2019-2023  本平台运营方  版权所有',
   );
 
   userStore.setLoginToken(undefined);

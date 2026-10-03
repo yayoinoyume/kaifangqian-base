@@ -137,7 +137,7 @@ public class PdfboxService {
         //签署所需基础数据
         AssinaturaModel assinatura = new AssinaturaModel();
         assinatura.setLocation("无");
-        assinatura.setReason("开放签电子签名");
+        assinatura.setReason("资助审批电子签章系统");
         //文件
         assinatura.setPdf(pdfFile);
         //签章

@@ -1,23 +1,5 @@
 /**
- * @description 开放签业务权限
- *
- * Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * 注意：本代码基于 AGPLv3 协议发布。若通过网络提供服务（如 Web 应用），
- * 必须公开修改后的完整源代码（包括衍生作品），详见协议全文。
+ * @description 资助审批电子签章系统业务权限
  */
 package com.kaifangqian.modules.opensign.controller;
 
@@ -33,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * @Description: 开放签业务权限
+ * @Description: 资助审批电子签章系统业务权限
  * @Package: com.kaifangqian.modules.opensign.controller
  * @ClassName: SignBusinessAuthController
  * @author: FengLai_Gong
@@ -42,8 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 @RestController
 @RequestMapping("/sign/business/auth")
-@ResrunLogModule(name = "开放签业务权限")
-// @Api(tags = "开放签-业务权限")
+@ResrunLogModule(name = "资助审批电子签章系统业务权限")
+// @Api(tags = "资助审批电子签章系统-业务权限")
 public class SignBusinessAuthController {
 
 

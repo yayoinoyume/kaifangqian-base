@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 开放签（kaifangqian）本地部署 —— 数据库幂等初始化
+# 资助审批电子签章系统（kaifangqian）本地部署 —— 数据库幂等初始化
 #
 # 依次完成：
 #   1. 等待 MySQL 就绪

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""开放签 OpenAPI 签名客户端（RSA2 / SHA256withRSA）。
+"""资助审批电子签章系统 OpenAPI 签名客户端（RSA2 / SHA256withRSA）。
 
 == 为什么要签名 ==
 后端 `ApiSignThreadLocalAop` 自 2026-09-20 起强制验签，未签名或签名不匹配的请求

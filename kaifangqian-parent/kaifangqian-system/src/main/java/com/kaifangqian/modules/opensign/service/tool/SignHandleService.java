@@ -77,7 +77,7 @@
 //
 //            CertificateProperty certificateProperty = new CertificateProperty();
 //            try {
-//                String rootSubject = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=开放签_Test";
+//                String rootSubject = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=资助审批电子签章系统_Test";
 //                GenerateCertificateInfo rootCert = GenerateRootCertificate.instance(rootSubject, CertificateType.RSA)
 //                        .generateCertificate(null, "123456", 100);
 //
@@ -90,7 +90,7 @@
 //                KeyStore store = KeyStore.getInstance("JKS");
 //                store.load(new ByteArrayInputStream(rootCert.getJks()), "123456".toCharArray());
 //                userCert.setCert(store);
-//                String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=aaa@bbb@18612345678" ;
+//                String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=aaa@bbb@18612345678" ;
 //                GenerateCertificateInfo userGenerateCert = GenerateRootCertificate.instance(x500Name, CertificateType.RSA)
 //                        .generateCertificate(userCert, "123456", 100);
 //                if(userGenerateCert == null || userGenerateCert.getPfx() == null){

@@ -7,7 +7,7 @@
 - [PowerJob](https://github.com/PowerJob/PowerJob/blob/v4.0.1/README_zhCN.md): 4.0.1
 - java: 1.8+ 
 
-注意：部署期应先准备如上环境，目前java应用环境在仅在jdk1.8+下运行和测试，其他版本jdk请自行研究，有兴趣可以向开放签进行贡献代码
+注意：部署期应先准备如上环境，目前java应用环境在仅在jdk1.8+下运行和测试，其他版本jdk请自行研究，有兴趣可以向本项目贡献代码
 
 ## 安装使用
 ### 1. 获取项目代码
@@ -24,7 +24,7 @@ mvn install
 ```
 ### 3. 其他配置
 #### 3.1 调度中心（powerjob-server）
-启动项目必须先启动powerjob-server:4.0.1，否则开放签项目会启动失败，具体请查看[PowerJob](https://github.com/PowerJob/PowerJob/blob/v4.0.1/README_zhCN.md)
+启动项目必须先启动powerjob-server:4.0.1，否则资助审批电子签章系统项目会启动失败，具体请查看[PowerJob](https://github.com/PowerJob/PowerJob/blob/v4.0.1/README_zhCN.md)
 
 opensign.sql中已包含powerjob的表结构和初始化数据，直接修改数据源配置即可
 

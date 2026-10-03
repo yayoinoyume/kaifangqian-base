@@ -201,7 +201,7 @@
       function handleBackHome() {
         let appInfo = window.appInfo;
         window.open(appInfo.sign_app_info.url + '/#/dashboard/workbench', '_self');
-        // openOrFocusTab(appInfo.sign_app_info.url + '/#/dashboard/workbench','开放签')
+        // openOrFocusTab(appInfo.sign_app_info.url + '/#/dashboard/workbench','资助审批电子签章系统')
       }
 
       function openOrFocusTab(url, tabName) {

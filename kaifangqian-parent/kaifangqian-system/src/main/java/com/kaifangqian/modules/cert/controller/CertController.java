@@ -43,8 +43,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @RestController
 @RequestMapping("/cert")
-@ResrunLogModule(name = "开放签-证书管理")
-// @Api(tags = "开放签-证书管理")
+@ResrunLogModule(name = "资助审批电子签章系统-证书管理")
+// @Api(tags = "资助审批电子签章系统-证书管理")
 public class CertController {
 
 
@@ -59,7 +59,7 @@ public class CertController {
 
 
 
-    // @ApiOperation("开放签-证书管理-企业管理后台-证书列表")
+    // @ApiOperation("资助审批电子签章系统-证书管理-企业管理后台-证书列表")
     @RequestMapping(value = "/enterprise/manage/list",method = RequestMethod.GET)
     public Result<IPage<CertVo>> enterpriseMangeList(CertPageRequest request){
         LoginUser currentUser = MySecurityUtils.getCurrentUser();
@@ -132,7 +132,7 @@ public class CertController {
     }
 
 
-    // @ApiOperation("开放签-证书管理-运营管理后台-个人证书列表")
+    // @ApiOperation("资助审批电子签章系统-证书管理-运营管理后台-个人证书列表")
     @RequestMapping(value = "/operation/manage/personal/list",method = RequestMethod.GET)
     public Result<IPage<CertVo>> operationManagePersonalList(CertPageRequest request){
 
@@ -247,7 +247,7 @@ public class CertController {
         return Result.OK(returnPage) ;
     }
 
-    // @ApiOperation("开放签-证书管理-运营管理后台-企业证书列表")
+    // @ApiOperation("资助审批电子签章系统-证书管理-运营管理后台-企业证书列表")
     @RequestMapping(value = "/operation/manage/enterprise/list",method = RequestMethod.GET)
     public Result<IPage<CertVo>> operationManageEnterpriseList(CertPageRequest request){
 

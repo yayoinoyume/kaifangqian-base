@@ -21,7 +21,7 @@ export function configHtmlPlugin(env: ViteEnv, isBuild: boolean) {
     inject: {
       // Inject data into ejs template
       data: {
-        title: '开放签',
+        title: '资助审批电子签章系统',
       },
       // Embed the generated app.config.js file
       tags: isBuild

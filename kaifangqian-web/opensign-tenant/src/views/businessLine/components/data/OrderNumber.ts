@@ -1,5 +1,5 @@
 export const  subjectData = [
-  { contentType: 'text', label: '文本', content: '开放签', checked: false, edit: false,defaultContent:'开放签',contentOrder:1 },
+  { contentType: 'text', label: '文本', content: '资助审批电子签章系统', checked: false, edit: false,defaultContent:'资助审批电子签章系统',contentOrder:1 },
   { contentType: 'business_line_name', label: '业务线名称', content: '', checked: true, edit: false, defaultContent:'劳动合同-2023年新版' ,contentOrder:2 },
   {
     contentType: 'datetime', label: '日期', content: 'yyyy', defaultContent:'年月日,示例：20231218', edit: false,contentOrder:3, options: [

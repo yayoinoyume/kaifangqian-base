@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 开放签（kaifangqian）本地私有化部署 —— 构建脚本
+# 资助审批电子签章系统（kaifangqian）本地私有化部署 —— 构建脚本
 #
 # 用法：
 #   ./build.sh              # 全量构建：后端 + PowerJob + 5 个前端 + 产物组装

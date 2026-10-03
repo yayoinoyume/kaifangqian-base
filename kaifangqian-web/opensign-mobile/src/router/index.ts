@@ -1,32 +1,14 @@
 /**
  * @description : 路由配置文件
- *
- * Copyright (C) [2025] [版权所有者（北京资源律动科技有限公司）]. All rights reserved.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * 注意：本代码基于 AGPLv3 协议发布。若通过网络提供服务（如 Web 应用），
- * 必须公开修改后的完整源代码（包括衍生作品），详见协议全文。
  */
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 
 export const layoutRoutes: Array<RouteRecordRaw> = [
   {
     path: 'index',
-    name: '开放签',
+    name: '资助审批电子签章系统',
     meta: {
-      title: '开放签',
+      title: '资助审批电子签章系统',
       leftArrow: false,
       keepAlive: true,
     },
@@ -36,7 +18,7 @@ export const layoutRoutes: Array<RouteRecordRaw> = [
     path: '/write/:signRuId?/:taskId?',
     name: '填写',
     meta: {
-      title: '开放签',
+      title: '资助审批电子签章系统',
       leftArrow: true,
       keepAlive: false,
     },
@@ -46,7 +28,7 @@ export const layoutRoutes: Array<RouteRecordRaw> = [
     path: '/detail/:signRuId?',
     name: '详情',
     meta: {
-      title: '开放签',
+      title: '资助审批电子签章系统',
       leftArrow: true,
       keepAlive: false,
     },
@@ -56,7 +38,7 @@ export const layoutRoutes: Array<RouteRecordRaw> = [
     path: '/doc/:signRuId?/:docId?',
     name: '签约文档',
     meta: {
-      title: '开放签',
+      title: '资助审批电子签章系统',
       leftArrow: true,
       keepAlive: false,
     },

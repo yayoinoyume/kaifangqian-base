@@ -11,7 +11,7 @@ import java.util.Base64;
 
 /**
  * 本地证书签名器：使用本地 PKCS12 证书私钥生成 CMS/PKCS#7 签名，
- * 替代开放签原有的云盾远程签名调用。
+ * 替代资助审批电子签章系统原有的云盾远程签名调用。
  */
 public class LocalExternalSign implements ThirdPartyExternalSign {
 

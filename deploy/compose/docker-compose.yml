@@ -1,4 +1,4 @@
-# 开放签（kaifangqian）本地私有化部署 —— 五容器编排
+# 资助审批电子签章系统（kaifangqian）本地私有化部署 —— 五容器编排
 # 说明：
 #   1) 卷与网络统一使用 external，避免 docker compose down 误删数据卷；
 #      首次部署请先执行 up.sh（会自动创建缺失的卷与网络）。

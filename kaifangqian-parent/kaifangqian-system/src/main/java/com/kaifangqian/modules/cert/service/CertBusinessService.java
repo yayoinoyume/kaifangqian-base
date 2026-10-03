@@ -50,9 +50,9 @@ public class CertBusinessService {
 
     public static final String REAL_CA_ISSUE_ORG = "中认环宇";
 
-    public static final String TEST_CA_ISSUE_ORG = "开放签测试证书";
+    public static final String TEST_CA_ISSUE_ORG = "资助审批电子签章系统测试证书";
 
-    public static final String SYSTEM_ISSUE_ORG = "开放签防篡改证书";
+    public static final String SYSTEM_ISSUE_ORG = "资助审批电子签章系统防篡改证书";
 
 
     //    @Autowired
@@ -406,7 +406,7 @@ public class CertBusinessService {
             //平台防篡改证书
             //颁发机构
             certificateInfo.setIssueOrg(SYSTEM_ISSUE_ORG);
-            certificateInfo.setCertSubject("C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" + "@" + identifySubject + "@" + certificateInfo.getIssueOrg());
+            certificateInfo.setCertSubject("C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" + "@" + identifySubject + "@" + certificateInfo.getIssueOrg());
             certificateInfo.setCertType(CertTypeEnum.SYSTEM.getCode());
             if (certificateInfo.getCertSubject() != null && certificateInfo.getCertSubject().length() > 0) {
                 String certSubject = certificateInfo.getCertSubject();
@@ -417,7 +417,7 @@ public class CertBusinessService {
         } else if (certType.equals(CertTypeEnum.CA_TEST.getCode())) {
             //生成CA测试证书
             certificateInfo.setIssueOrg(TEST_CA_ISSUE_ORG);
-            certificateInfo.setCertSubject("C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" + "@" + identifySubject + "@" + certificateInfo.getIssueOrg());
+            certificateInfo.setCertSubject("C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" + "@" + identifySubject + "@" + certificateInfo.getIssueOrg());
             certificateInfo.setCertType(CertTypeEnum.CA_TEST.getCode());
             if (certificateInfo.getCertSubject() != null && certificateInfo.getCertSubject().length() > 0) {
                 String certSubject = certificateInfo.getCertSubject();
@@ -641,7 +641,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateCATest(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" +
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" +
 //                tenantCertInfo.getName() + "@" + tenantCertInfo.getIdCardNumber() + "@" + tenantCertInfo.getPhone() ;
 //        Boolean certSysConfig = getCertSysConfig();
 //        if(certSysConfig){
@@ -663,7 +663,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateCAPrivate(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" +
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" +
 //                tenantCertInfo.getName() + "@" + tenantCertInfo.getIdCardNumber() + "@" + tenantCertInfo.getPhone() ;
 //        Boolean certSysConfig = getCertSysConfig();
 //        if(certSysConfig){
@@ -684,7 +684,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateCAEnt(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" + tenantCertInfo.getEntName() + "@" + tenantCertInfo.getUscc() ;
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" + tenantCertInfo.getEntName() + "@" + tenantCertInfo.getUscc() ;
 //        Boolean certSysConfig = getCertSysConfig();
 //        if(certSysConfig){
 //            x500Name = "C=CN,CN=" + tenantCertInfo.getEntName() + "@" + tenantCertInfo.getUscc() ;
@@ -703,7 +703,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateSystemPrivate(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" + tenantCertInfo.getName() + "@" + tenantCertInfo.getPhone() + "@" + TEST_CA_ISSUE_ORG ; ;
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" + tenantCertInfo.getName() + "@" + tenantCertInfo.getPhone() + "@" + TEST_CA_ISSUE_ORG ; ;
 //        return  generateCert(x500Name, CertTypeEnum.SYSTEM_PERSONAL,tenantCertInfo.getTenantId());
 //    }
 
@@ -715,7 +715,7 @@ public class CertBusinessService {
 //     **/
 //    public String generateSystemEnt(TenantCertInfo tenantCertInfo ){
 //
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=" + tenantCertInfo.getEntName() + "@" + tenantCertInfo.getUscc() + "@" + TEST_CA_ISSUE_ORG ;
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=" + tenantCertInfo.getEntName() + "@" + tenantCertInfo.getUscc() + "@" + TEST_CA_ISSUE_ORG ;
 //        return  generateCert(x500Name, CertTypeEnum.SYSTEM_ENTERPRISE,tenantCertInfo.getTenantId());
 //    }
 
@@ -726,7 +726,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateCARoot(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=开放签_Test@" + TEST_CA_ISSUE_ORG;
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=资助审批电子签章系统_Test@" + TEST_CA_ISSUE_ORG;
 //        return  generateCert(x500Name, CertTypeEnum.CA_ROOT,tenantCertInfo.getTenantId());
 //    }
 //
@@ -736,7 +736,7 @@ public class CertBusinessService {
 //     * @return java.lang.String
 //     **/
 //    public String generateSystemRoot(TenantCertInfo tenantCertInfo){
-//        String x500Name = "C=CN,ST=北京,L=北京,O=开放签 CA,OU=产品部,CN=开放签@" + TEST_CA_ISSUE_ORG;
+//        String x500Name = "C=CN,ST=北京,L=北京,O=资助审批电子签章系统 CA,OU=产品部,CN=资助审批电子签章系统@" + TEST_CA_ISSUE_ORG;
 //        return  generateCert(x500Name, CertTypeEnum.SYSTEM_ROOT,tenantCertInfo.getTenantId());
 //    }
 //
@@ -975,9 +975,9 @@ public class CertBusinessService {
 
 //    public static void main(String[] args) {
 //
-////        String x500Name = "C==CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=开放签_Test";
-////        String x500Name = "C==CN,ST=北京,L=北京,O=开放签 CA,OU=产品部,CN=开放签";
-//        String x500Name = "C==CN,ST=北京,L=北京,O=开放签,OU=产品部,CN=cccc@aaaaaaa";
+////        String x500Name = "C==CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=资助审批电子签章系统_Test";
+////        String x500Name = "C==CN,ST=北京,L=北京,O=资助审批电子签章系统 CA,OU=产品部,CN=资助审批电子签章系统";
+//        String x500Name = "C==CN,ST=北京,L=北京,O=资助审批电子签章系统,OU=产品部,CN=cccc@aaaaaaa";
 //
 //        GenerateCertificateInfo certificateInfo = null;
 //        try {

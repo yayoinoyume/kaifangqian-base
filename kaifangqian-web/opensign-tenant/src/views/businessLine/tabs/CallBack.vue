@@ -5,7 +5,7 @@
       type="info"
     >
         <template #description>
-            <p><a-badge status="default" text="Default"  color="#333"/>合同签署流程中发生发送合同、填写提交、签署、撤回、完成签署等事件时，开放签会向应用的“回调地址”推送相应的事件消息，进行数据的同步。</p>
+            <p><a-badge status="default" text="Default"  color="#333"/>合同签署流程中发生发送合同、填写提交、签署、撤回、完成签署等事件时，资助审批电子签章系统会向应用的“回调地址”推送相应的事件消息，进行数据的同步。</p>
             <p><a-badge status="default" text="Default"   color="#333"/>如果您需要开通该业务线的回调服务，请确保您已经获得API接口服务的对接授权凭证，并将凭证与该业务线进行绑定。</p>
         </template>
     </a-alert>
