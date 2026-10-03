@@ -399,7 +399,7 @@ export const useUserStore = defineStore({
           websiteTitle:web.website_title || "电子签章",
           websiteWhiteLogo:web.website_white_logo,
           websiteOtherLogo:web.website_other_logo,
-          websiteCopyright: web.website_copyright || "QQ群：482074553  联系电话：15010993257  邮箱：service@resrun.cn  Copyright 2019-2023  本平台运营方  版权所有",
+          websiteCopyright: web.website_copyright || "本平台仅用于学习交流",
           systenAccountType: web.system_account_type || "phone_email"
         }
         this.setWebConfig(webConfig);

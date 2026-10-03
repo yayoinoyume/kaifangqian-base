@@ -11,8 +11,8 @@
         <!-- <span class="header-title">资助审批电子签章系统</span> -->
       </div>
       <!-- <div class="header-right">
-        <a href="https://www.yuque.com/huxin-ch41t/resrun/akk7i0" target="_blank">帮助文档</a>
-        <a href="https://resrun.cn/" target="_blank">官网</a>
+        <a href="#" target="_blank">帮助文档</a>
+        <a href="#" target="_blank">官网</a>
       </div> -->
     </div>
     <div class="container relative">
@@ -20,11 +20,7 @@
         <div class="login-bg-container">
           <p class="copyright-footer">
             {{ webCopyRight }}
-            <!-- <span>QQ群：482074553</span>
-            <span>联系电话：15010993257</span>
-            <span>邮箱：service@resrun.cn</span>
-            <span>Copyright 2019-2023 本平台运营方</span>
-            <span> 版权所有</span> -->
+            <!-- <span>本平台仅用于学习交流</span> -->
           </p>
         </div>
         <div
@@ -97,7 +93,7 @@
   const userStore = useUserStore();
   const logoBase64 = ref(defaultLogo);
   const webCopyRight = ref(
-    'QQ群：482074553  联系电话：15010993257  邮箱：service@resrun.cn  Copyright 2019-2023  本平台运营方  版权所有',
+    '本平台仅用于学习交流',
   );
 
   userStore.setLoginToken(undefined);

@@ -10,8 +10,8 @@
         <span class="header-title">资助审批电子签章系统</span>
       </div>
       <div class="header-right">
-        <a href="https://www.yuque.com/huxin-ch41t/resrun/akk7i0" target="_blank">帮助文档</a>
-        <a href="https://resrun.cn/" target="_blank">官网</a>
+        <a href="#" target="_blank">帮助文档</a>
+        <a href="#" target="_blank">官网</a>
       </div>
     </div>
     <div class="container relative  py-2 mx-auto sm:px-10">

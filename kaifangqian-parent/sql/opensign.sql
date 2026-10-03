@@ -4868,7 +4868,7 @@ INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_ti
 INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5c9ad6af-1eff-ad09-4fb4-z93b22d61607', '短信模板-企业实名认证审核通过通知', 'mes_template_entAuthSuccess', '', NULL, NULL, 'admin', '2024-04-23 18:03:38');
 INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5c9ad6af-1fff-ad09-4fb4-o93b22d61607', '短信模板-文件抄送通知（签署完成时通知）', 'mes_template_copySign', '', NULL, NULL, 'admin', '2024-04-23 18:03:38');
 INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5c9ad6af-1ppf-ad09-4fb4-o93b22d61607', '短信模板-文件签署通知（接收方）', 'mes_template_signTaskOut', '', NULL, NULL, 'admin', '2024-04-23 18:03:38');
-INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5c9adssf-1eff-ad09-4fb4-493b22d61607', '网站配置-copyright', 'website_copyright', 'QQ群：482074553  联系电话：15010993257  邮箱：service@resrun.cn  Copyright 2019-2023  本平台运营方  版权所有', NULL, NULL, 'admin', '2024-04-23 21:47:29');
+INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5c9adssf-1eff-ad09-4fb4-493b22d61607', '网站配置-copyright', 'website_copyright', '本平台仅用于学习交流', NULL, NULL, 'admin', '2024-04-23 21:47:29');
 INSERT INTO `sys_config` (`id`, `name`, `type`, `value`, `create_by`, `create_time`, `update_by`, `update_time`) VALUES ('5co2o6af-1eff-ad09-4fb4-o93b22d61607', '短信模板-文件签署通知（发起方）', 'mes_template_signTaskIn', '', NULL, NULL, 'admin', '2024-04-23 18:03:38');
 
 -- ----------------------------
