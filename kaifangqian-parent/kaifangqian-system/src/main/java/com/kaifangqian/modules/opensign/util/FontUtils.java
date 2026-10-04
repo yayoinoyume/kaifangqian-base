@@ -9,7 +9,7 @@ package com.kaifangqian.modules.opensign.util;
  * @ClassName: FontUtils
  * @author: Fusion
  * CreateTime:  2023/8/22  17:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 public class FontUtils {
 

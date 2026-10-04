@@ -24,7 +24,7 @@ import java.io.IOException;
  * @ClassName: SignVerifyServiceImpl
  * @author: Fusion
  * CreateTime:  2023/8/120  10:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 
 

@@ -20,7 +20,7 @@ import java.util.List;
  * @ClassName: SignStasticsMapper
  * @author: Fusion
  * CreateTime:  2023/8/22  9:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 
 public interface SignStasticsMapper extends BaseMapper<SignEntSeal> {

@@ -13,7 +13,7 @@ import lombok.Data;
  * @ClassName: SealAuditVo
  * @author: Fusion
  * CreateTime:  2023/8/18  14:50
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 @Data
 // @ApiModel("印章审计返回对象")

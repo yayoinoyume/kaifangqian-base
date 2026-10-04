@@ -13,7 +13,7 @@ import lombok.Data;
  * @ClassName: SealStatisticsVo
  * @author: Fusion
  * CreateTime:  2023/8/18  13:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 
 // @ApiModel("用印统计返回对象")

@@ -27,7 +27,7 @@ import com.kaifangqian.config.limit.annotation.OperateType;
  * @ClassName: SignVerifyController
  * @author: Fusion
  * CreateTime:  2023/8/20  9:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 @Slf4j
 @RestController

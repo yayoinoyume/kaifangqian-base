@@ -10,7 +10,7 @@ package com.kaifangqian.modules.opensign.enums;
  * @ClassName: SignStatus
  * @author: Fusion
  * CreateTime:  2023/8/19  14:50
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 
 public enum SignStatus {

@@ -20,7 +20,7 @@ import java.util.Map;
  * @ClassName: JasperReportUtil
  * @author: Fusion
  * CreateTime: 2023/8/25 10:57
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 public class ReportUtils {
     private final static String baseDir="templates";

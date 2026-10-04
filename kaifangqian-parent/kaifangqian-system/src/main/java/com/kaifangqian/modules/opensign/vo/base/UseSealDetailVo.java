@@ -14,7 +14,7 @@ import lombok.Data;
  * @ClassName: UseSealDetailVo
  * @author: Fusion
  * CreateTime:  2023/8/18  14:50
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 // @ApiModel("用印明细返回对象")
 @Data

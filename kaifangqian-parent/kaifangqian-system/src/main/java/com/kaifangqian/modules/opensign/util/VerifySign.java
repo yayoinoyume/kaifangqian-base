@@ -60,7 +60,7 @@ import java.util.List;
  * @ClassName: VerifySign
  * @author: Fusion
  * CreateTime:  2023/8/22  10:53
- * @copyright 本平台运营方
+ * @copyright 资助审批电子签章系统
  */
 @Slf4j
 public class VerifySign {
